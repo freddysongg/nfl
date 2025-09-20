@@ -1,0 +1,143 @@
+Load Trades
+Source:
+R/load_trades.R
+load_trades.Rd
+This returns a table of historical trades as maintained by Lee Sharpe.
+Usage
+load_trades
+(
+seasons
+=
+TRUE
+)
+Arguments
+seasons
+a numeric vector of seasons to return, default
+TRUE
+returns all available data.
+Value
+A tibble of game information for past and/or future games.
+See also
+https://nflreadr.nflverse.com/articles/dictionary_trades.html
+for a web version of the dictionary
+dictionary_trades
+for the data dictionary as bundled within the package
+Issues with this data should be filed here:
+https://github.com/nflverse/nfldata
+Examples
+# \donttest{
+load_trades
+(
+2020
+)
+#>
+──
+nflverse trades (via PFR / Lee Sharpe)
+──────────────────────────────────────
+#>
+ℹ
+Data updated:
+2025-09-12 13:32:35 UTC
+#>
+# A tibble: 211 × 11
+#>
+trade_id season trade_date gave  received pick_season pick_round pick_number
+#>
+<dbl>
+<dbl>
+<date>
+<chr>
+<chr>
+<dbl>
+<dbl>
+<dbl>
+#>
+1
+1
+465
+2
+020 2020-03-03 DEN   JAX
+2
+020          4         137
+#>
+2
+1
+465
+2
+020 2020-03-03 JAX   DEN
+NA
+NA
+NA
+#>
+3
+1
+466
+2
+020 2020-03-04 CAR   LAC
+NA
+NA
+NA
+#>
+4
+1
+466
+2
+020 2020-03-04 LAC   CAR
+NA
+NA
+NA
+#>
+5
+1
+471
+2
+020 2020-03-15 BAL   JAX
+2
+020          5         157
+#>
+6
+1
+471
+2
+020 2020-03-15 JAX   BAL
+NA
+NA
+NA
+#>
+7
+1
+467
+2
+020 2020-03-16 IND   SF
+2
+020          1          13
+#>
+8
+1
+467
+2
+020 2020-03-16 SF    IND
+NA
+NA
+NA
+#>
+9
+1
+468
+2
+020 2020-03-16 BUF   MIN
+2
+020          1          22
+#>
+10
+1
+468
+2
+020 2020-03-16 BUF   MIN
+2
+020          5         155
+#>
+# ℹ 201 more rows
+#>
+# ℹ 3 more variables: conditional <dbl>, pfr_id <chr>, pfr_name <chr>
+# }

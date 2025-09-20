@@ -1,0 +1,148 @@
+Package index
+Load nflverse data
+load_pbp()
+Load Play By Play
+load_player_stats()
+Load Player Level Stats
+load_team_stats()
+Load Team Level Stats
+load_participation()
+Load Participation Data
+load_players()
+Load Players
+load_rosters()
+Load Rosters
+load_rosters_weekly()
+Load Weekly Rosters
+load_teams()
+Load NFL Team Graphics, Colors, and Logos
+load_schedules()
+Load Game/Schedule Data
+load_officials()
+Load Officials
+load_trades()
+Load Trades
+load_draft_picks()
+Load Draft Picks from PFR
+load_combine()
+Load Combine Data from PFR
+load_nextgen_stats()
+Load Player Level Weekly NFL Next Gen Stats
+load_depth_charts()
+Load Weekly Depth Charts
+load_injuries()
+Load Injury Reports
+load_espn_qbr()
+Load ESPN's QBR
+load_pfr_advstats()
+Load Advanced Stats from PFR
+load_snap_counts()
+Load Snap Counts from PFR
+load_contracts()
+Load Historical Player Contracts from OverTheCap.com
+load_ftn_charting()
+Load FTN Charting Data
+nflverse_download()
+Bulk download utilities via piggyback
+nflverse_releases()
+List all available nflverse releases
+nflverse_data_timezone
+nflverse Timezone
+Load ffverse data
+load_ff_playerids()
+Load Fantasy Player IDs
+load_ff_rankings()
+Load Latest FantasyPros Rankings
+load_ff_opportunity()
+Load Expected Fantasy Points
+Data Dictionaries
+You can also access the web versions from the top of this page!
+
+dictionary_combine
+Data Dictionary: Combine
+dictionary_contracts
+Data Dictionary: Contracts
+dictionary_depth_charts
+Data Dictionary: Depth Charts
+dictionary_draft_picks
+Data Dictionary: Draft Picks
+dictionary_espn_qbr
+Data Dictionary: ESPN QBR
+dictionary_ff_opportunity
+Data Dictionary: Expected Fantasy Points
+dictionary_ff_playerids
+Data Dictionary: Fantasy Player IDs
+dictionary_ff_rankings
+Data Dictionary: Fantasy Football Rankings
+dictionary_ftn_charting
+Data Dictionary: FTN Charting Data
+dictionary_injuries
+Data Dictionary: Injuries
+dictionary_nextgen_stats
+Data Dictionary: Next Gen Stats
+dictionary_participation
+Data Dictionary: Participation
+dictionary_pbp
+Data Dictionary: Play by Play
+dictionary_pfr_passing
+Data Dictionary: PFR Passing
+dictionary_player_stats
+Data Dictionary: Player Stats
+dictionary_players
+Data Dictionary: Players
+dictionary_roster_status
+dictionary_roster_status
+dictionary_rosters
+Data Dictionary: Rosters
+dictionary_schedules
+Data Dictionary: Schedules
+dictionary_snap_counts
+Data Dictionary: Snap Counts
+dictionary_team_stats
+Data Dictionary: Team Stats
+dictionary_trades
+Data Dictionary: Trades
+Loading raw data
+load_from_url()
+Load any rds/csv/csv.gz/parquet/qs file from a remote URL
+csv_from_url()
+Load .csv / .csv.gz file from a remote connection
+parquet_from_url()
+Load .parquet file from a remote connection
+qs_from_url()
+Load .qs file from a remote connection
+rds_from_url()
+Load .rds file from a remote connection
+raw_from_url()
+Load raw filedata from a remote connection
+progressively()
+Progressively
+Miscellaneous
+clear_cache() .clear_cache()
+Clear function cache
+nflverse_sitrep() ffverse_sitrep() .sitrep()
+Get a Situation Report on System, nflverse/ffverse Package Versions and Dependencies
+clean_player_names()
+Create Player Merge Names
+clean_team_abbrs()
+Standardize NFL Team Abbreviations
+clean_homeaway()
+Clean Home/Away in dataframes into Team/Opponent dataframes
+nflverse_game_id()
+Compute nflverse Game Identifiers
+player_name_mapping
+Alternate player name mappings
+team_abbr_mapping
+Alternate team abbreviation mappings
+team_abbr_mapping_norelocate
+Alternate team abbreviation mappings, no relocation
+most_recent_season() get_latest_season() get_current_season()
+Get Latest Season
+get_current_week()
+Get Current Week
+join_coalesce()
+Coalescing join
+as.nflverse_data()
+nflverse data class
+stat_mode()
+Statistical Mode

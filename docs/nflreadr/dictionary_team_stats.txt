@@ -1,0 +1,111 @@
+Data Dictionary - Team Stats
+Source:
+vignettes/dictionary_team_stats.Rmd
+dictionary_team_stats.Rmd
+
+field	data_type	description
+All
+All
+All
+season	numeric	Official NFL season
+week	numeric	Game week number
+team	character	Abbreviation of team
+season_type	character	`REG` for regular season, `POST` for postseason
+opponent_team	character	Abbreviation of opponent team
+completions	numeric	The number of completed passes.
+attempts	numeric	The number of pass attempts as defined by the NFL.
+passing_yards	numeric	Yards gained on pass plays.
+passing_tds	numeric	The number of passing touchdowns.
+passing_interceptions	numeric	Number of passing interceptions
+sacks_suffered	numeric	Number of sacks taken as a QB
+sack_yards_lost	numeric	Yards lost from sacks suffered by this team
+sack_fumbles	numeric	The number of sacks suffered with a fumble.
+sack_fumbles_lost	numeric	The number of sacks suffered with a lost fumble.
+passing_air_yards	numeric	Passing air yards (includes incomplete passes).
+passing_yards_after_catch	numeric	Yards after the catch gained on plays in which player was the passer (this is an unofficial stat and may differ slightly between different sources).
+passing_first_downs	numeric	First downs on pass attempts.
+passing_epa	numeric	Total expected points added on pass attempts and sacks. NOTE: this uses the variable `qb_epa`, which gives QB credit for EPA for up to the point where a receiver lost a fumble after a completed catch and makes EPA work more like passing yards on plays with fumbles.
+passing_cpoe	numeric	Completion percentage over expected for this team.
+passing_2pt_conversions	numeric	Two-point conversion passes.
+carries	numeric	The number of official rush attempts (incl. scrambles and kneel downs). Rushes after a lateral reception don't count as carry.
+rushing_yards	numeric	Yards gained when rushing with the ball (incl. scrambles and kneel downs). Also includes yards gained after obtaining a lateral on a play that started with a rushing attempt.
+rushing_tds	numeric	The number of rushing touchdowns (incl. scrambles). Also includes touchdowns after obtaining a lateral on a play that started with a rushing attempt.
+rushing_fumbles	numeric	The number of rushes with a fumble.
+rushing_fumbles_lost	numeric	The number of rushes with a lost fumble.
+rushing_first_downs	numeric	First downs on rush attempts (incl. scrambles).
+rushing_epa	numeric	Expected points added on rush attempts (incl. scrambles and kneel downs).
+rushing_2pt_conversions	numeric	Two-point conversion rushes
+receptions	numeric	The number of pass receptions. Lateral receptions officially don't count as reception.
+targets	numeric	The number of pass plays where the player was the targeted receiver.
+receiving_yards	numeric	Yards gained after a pass reception. Includes yards gained after receiving a lateral on a play that started as a pass play.
+receiving_tds	numeric	The number of touchdowns following a pass reception. Also includes touchdowns after receiving a lateral on a play that started as a pass play.
+receiving_fumbles	numeric	The number of fumbles after a pass reception.
+receiving_fumbles_lost	numeric	The number of fumbles lost after a pass reception.
+receiving_air_yards	numeric	Receiving air yards (incl. incomplete passes).
+receiving_yards_after_catch	numeric	Yards after the catch gained on plays in which player was receiver (this is an unofficial stat and may differ slightly between different sources).
+receiving_first_downs	numeric	Total number of first downs gained on receptions
+receiving_epa	numeric	Total EPA on plays where this receiver was targeted
+receiving_2pt_conversions	numeric	Two-point conversion receptions
+special_teams_tds	numeric	Total number of kick/punt return touchdowns
+def_tackles_solo	numeric	Total number of solo tackles for this team
+def_tackles_with_assist	numeric	Number of tackles this team had with an assisted tackle
+def_tackle_assists	numeric	Number of assisted tackles for this team
+def_tackles_for_loss	numeric	Number of tackles for loss (TFL) for this team
+def_tackles_for_loss_yards	numeric	Yards lost from TFLs involving this team
+def_fumbles_forced	numeric	Number of times a fumble was forced by this team
+def_sacks	numeric	Number of sacks by this team
+def_sack_yards	numeric	Yards lost from sacks forced by this team
+def_qb_hits	numeric	Number of QB hits by this team (should not include plays where the QB was sacked)
+def_interceptions	numeric	Number of interceptions forced by this team
+def_interception_yards	numeric	yards gained/lost on interception returns by this team
+def_pass_defended	numeric	Number of passes defended/broken up by this team
+def_tds	numeric	Number of defensive touchdowns scored by this team
+def_fumbles	numeric	Number of fumbles forced by this team
+def_safeties	numeric	Number of safeties forced by this team
+misc_yards	numeric	Miscellaneous yards attributed to this team
+fumble_recovery_own	numeric	Number of the player's own team fumbles recovered
+fumble_recovery_yards_own	numeric	Yards gained/lost on own fumble recoveries
+fumble_recovery_opp	numeric	Number of the opponent's fumbles recovered
+fumble_recovery_yards_opp	numeric	Yardage on opponent fumble recoveries
+fumble_recovery_tds	numeric	Fumbles recovered and advanced for a touchdown
+penalties	numeric	Number of penalties attributed to this team
+penalty_yards	numeric	Penalty yardage on penalties attributed to this team
+timeouts	numeric	Number of timeouts used by this team
+punt_returns	numeric	Count of punt returns by this team
+punt_return_yards	numeric	Yards gained on punts returned by this team
+kickoff_returns	numeric	Count of kick returns by this team
+kickoff_return_yards	numeric	Yards gained on kick returns by this team
+fg_made	numeric	Count of field goals made by this team
+fg_att	numeric	Count of field goals attempted by this team
+fg_missed	numeric	Count of field goals missed by this team
+fg_blocked	numeric	Count of field goals attempted by this team that were blocked
+fg_long	numeric	Longest successful field goal made by this team
+fg_pct	numeric	Percentage of field goals successfully made
+fg_made_0_19	numeric	Count of field goals within 0-19 yards made by this team
+fg_made_20_29	numeric	Count of field goals within 20-29 yards made by this team
+fg_made_30_39	numeric	Count of field goals within 30-39 yards made by this team
+fg_made_40_49	numeric	Count of field goals within 40-49 yards made by this team
+fg_made_50_59	numeric	Count of field goals within 50-59 yards made by this team
+fg_made_60_	numeric	Count of field goals over 60 yards made by this team
+fg_missed_0_19	numeric	Count of field goals missed between 0-19 yards by this team
+fg_missed_20_29	numeric	Count of field goals missed between 20-29 yards by this team
+fg_missed_30_39	numeric	Count of field goals missed between 30-39 yards by this team
+fg_missed_40_49	numeric	Count of field goals missed between 40-49 yards by this team
+fg_missed_50_59	numeric	Count of field goals missed between 50-59 yards by this team
+fg_missed_60_	numeric	Count of field goals missed over 60 yards by this team
+fg_made_list	character	Comma-separated string listing lengths of field goals made
+fg_missed_list	character	Comma-separated string listing lengths of field goals missed
+fg_blocked_list	character	Comma-separated string listing lengths of field goals blocked
+fg_made_distance	numeric	Total distance on field goals made
+fg_missed_distance	numeric	Total distance on field goals missed
+fg_blocked_distance	numeric	Total distance on field goals blocked
+pat_made	numeric	Count of extra point kicks made
+pat_att	numeric	Count of extra point kicks attempted
+pat_missed	numeric	Count of extra point kicks missed
+pat_blocked	numeric	Count of extra point kicks blocked
+pat_pct	numeric	Percentage of extra point kicks successfully completed
+gwfg_made	numeric	Count of game winning field goals made
+gwfg_att	numeric	Count of game winning field goals attempted
+gwfg_missed	numeric	Count of game winning field goals missed
+gwfg_blocked	numeric	Count of game winning field goals blocked
+gwfg_distance	numeric	Total distance on game winning field goals completed

@@ -1,0 +1,124 @@
+Load Officials
+Source:
+R/load_officials.R
+load_officials.Rd
+Loads data on which officials are assigned to oversee a specific game. Data available from 2015 onwards.
+Usage
+load_officials
+(
+seasons
+=
+TRUE
+,
+file_type
+=
+getOption
+(
+"nflreadr.prefer"
+, default
+=
+"rds"
+)
+)
+Arguments
+seasons
+a numeric vector specifying what seasons to return, if
+TRUE
+returns all available data
+file_type
+One of
+c("rds", "qs", "csv", "parquet")
+. Can also be set globally with
+options(nflreadr.prefer)
+Value
+A tibble with one row per game per official.
+See also
+Issues with this data should be filed here:
+https://github.com/nflverse/nflreadr
+and it will be triaged appropriately.
+Examples
+# \donttest{
+try
+(
+{
+# prevents cran errors
+load_officials
+(
+)
+}
+)
+#>
+──
+nflverse officials
+──────────────────────────────────────────────────────────
+#>
+ℹ
+Data updated:
+2025-09-12 07:04:06 UTC
+#>
+# A tibble: 20,058 × 9
+#>
+game_id    game_key official_name  position  jersey_number official_id season
+#>
+<chr>
+<chr>
+<chr>
+<chr>
+<int>
+<chr>
+<int>
+#>
+1
+2015091000 56503    Brad Freeman   Field Ju…            88 25
+2
+015
+#>
+2
+2015091000 56503    Kent Payne     Head Lin…            79 28
+2
+015
+#>
+3
+2015091000 56503    Terrence Miles Back Jud…           111 139
+2
+015
+#>
+4
+2015091000 56503    Tim Podraza    Line Jud…            47 123
+2
+015
+#>
+5
+2015091000 56503    Scott Novak    Side Jud…             1 94
+2
+015
+#>
+6
+2015091000 56503    Undrey Wash    Umpire               96 134
+2
+015
+#>
+7
+2015091000 56503    Carl Cheffers  Referee              51 3
+2
+015
+#>
+8
+2015091300 56505    Lee Dyer       Back Jud…            27 72
+2
+015
+#>
+9
+2015091300 56505    Steve Zimmer   Field Ju…            33 116
+2
+015
+#>
+10
+2015091300 56505    Mark Hittner   Head Lin…            28 118
+2
+015
+#>
+# ℹ 20,048 more rows
+#>
+# ℹ 2 more variables: season_type <chr>, week <int>
+# }

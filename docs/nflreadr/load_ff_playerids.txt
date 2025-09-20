@@ -1,0 +1,143 @@
+Load Fantasy Player IDs
+Source:
+R/load_ffverse.R
+load_ff_playerids.Rd
+Accesses DynastyProcess.com's database of fantasy football player IDs, which help connect nflverse to various other platforms and IDs.
+Usage
+load_ff_playerids
+(
+)
+Value
+a dataframe of player IDs
+See also
+https://nflreadr.nflverse.com/articles/dictionary_ff_playerids.html
+for the web data dictionary
+Issues with this data should be filed here:
+https://github.com/dynastyprocess/data
+Examples
+# \donttest{
+try
+(
+{
+# prevents cran errors
+load_ff_playerids
+(
+)
+}
+)
+#>
+──
+nflverse (ffverse) player IDs
+───────────────────────────────────────────────
+#>
+ℹ
+Data updated:
+2025-09-12 13:32:14 UTC
+#>
+# A tibble: 12,121 × 35
+#>
+mfl_id sportradar_id  fantasypros_id gsis_id pff_id sleeper_id nfl_id espn_id
+#>
+<chr>
+<chr>
+<chr>
+<chr>
+<chr>
+<chr>
+<chr>
+<chr>
+#>
+1
+17030  3c76cab3-3df2… 24755
+NA
+NA
+12522
+NA
+4688380
+#>
+2
+17031  270e09bc-8bf8… 25968
+NA
+NA
+12524
+NA
+4432762
+#>
+3
+17032  53848cba-bcad… 23160
+NA
+NA
+12508
+NA
+4689114
+#>
+4
+17033  b0eb5b67-4ef2… 22884
+NA
+NA
+12510
+NA
+4432734
+#>
+5
+17034  d89f0384-21a6… 23680
+NA
+NA
+12500
+NA
+4889929
+#>
+6
+17035  38b62d7f-4403… 25373
+NA
+NA
+12470
+NA
+4683423
+#>
+7
+17036  b8a1b579-3a7e… 25972
+NA
+NA
+12511
+NA
+4429955
+#>
+8
+17037  299d4fe8-188c… 23150
+NA
+NA
+12486
+NA
+4427238
+#>
+9
+17038  451c7689-4fc2… 23066
+NA
+NA
+12494
+NA
+4433971
+#>
+10
+17039  94b8f9e1-3109… 23096
+NA
+NA
+12545
+NA
+4360689
+#>
+# ℹ 12,111 more rows
+#>
+# ℹ 27 more variables: yahoo_id <chr>, fleaflicker_id <chr>, cbs_id <chr>,
+#>
+#   pfr_id <chr>, cfbref_id <chr>, rotowire_id <chr>, rotoworld_id <chr>,
+#>
+#   ktc_id <chr>, stats_id <chr>, stats_global_id <chr>, fantasy_data_id <chr>,
+#>
+#   swish_id <chr>, name <chr>, merge_name <chr>, position <chr>, team <chr>,
+#>
+#   birthdate <date>, age <dbl>, draft_year <int>, draft_round <int>,
+#>
+#   draft_pick <int>, draft_ovr <chr>, twitter_username <chr>, height <int>, …
+# }

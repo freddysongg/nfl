@@ -1,0 +1,23 @@
+Clear function cache
+Source:
+R/utils_cache_clear.R
+clear_cache.Rd
+This function clears the memoised cache of all functions memoised by
+nflreadr
+.
+Usage
+clear_cache
+(
+)
+.clear_cache
+(
+)
+Value
+A success message after clearing the cache.
+Examples
+clear_cache
+(
+)
+#>
+✔
+nflreadr function cache cleared!
