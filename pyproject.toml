@@ -15,6 +15,11 @@ dependencies = [
     "nflreadpy>=0.1.2",
     "requests>=2.28.0",
     "beautifulsoup4>=4.11.0",
+    "duckdb>=1.4.0",
+    "polars>=0.20.0",
+    "pyarrow>=21.0.0",
+    "numpy>=2.3.3",
+    "pandas>=2.3.2"
 ]
 
 [project.optional-dependencies]
