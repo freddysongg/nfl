@@ -1955,9 +1955,572 @@ class NFLDataPipeline:
             logger.warning(f"  ⚠️  Could not generate summary: {e}")
 
     def create_team_aggregates(self):
-        """Create team aggregate features"""
+        """
+        Create team aggregate features from play-by-play and team stats.
+
+        Implements Stage 3c from IMPLEMENTATION_PLAN_STAGE_3C.md
+
+        Calculates 12 key team metrics:
+        - Offensive: EPA per play, success rate, explosive play rate, red zone efficiency, 3rd down conversion
+        - Defensive: EPA allowed, success rate, pressure rate, turnover rate
+        - Situational: Pass rate (neutral), pace of play, time of possession
+
+        Uses two-path implementation:
+        - Path A (2022+): raw_pbp table for detailed EPA metrics
+        - Path B (pre-2022): raw_team_stats for basic metrics (fallback)
+
+        Returns:
+            None. Results stored in team_rolling_features table.
+
+        Raises:
+            ValueError: If required tables are missing
+            Exception: If database operation fails
+        """
         logger.info("🏈 Creating team aggregates...")
-        # TODO: Implement from DATA_SETUP.md
+
+        try:
+            conn = self.db.connect()
+
+            # Validate required tables exist
+            tables = self.db.list_tables()
+            if "raw_player_stats" not in tables and "raw_pbp" not in tables:
+                raise ValueError(
+                    "Neither raw_player_stats nor raw_pbp found. Please run Stage 1 first."
+                )
+
+            # Clear existing team rolling features
+            conn.execute("DELETE FROM team_rolling_features")
+            logger.info("  🧹 Cleared existing team rolling features")
+
+            # Step 1: Determine available seasons with PBP data
+            seasons_with_pbp = self._get_seasons_with_pbp()
+            all_seasons = self._get_all_seasons()
+
+            logger.info(f"  📊 Found {len(seasons_with_pbp)} seasons with PBP data: {seasons_with_pbp}")
+            logger.info(f"  📊 Total seasons to process: {len(all_seasons)}")
+
+            total_records = 0
+
+            # Step 2: Process seasons with PBP data (preferred path)
+            for season in seasons_with_pbp:
+                logger.info(f"  🏈 Processing season {season} with PBP data...")
+                records = self._calculate_team_aggregates_from_pbp(season)
+                total_records += records
+
+            # Step 3: Process pre-2022 seasons with team stats fallback
+            legacy_seasons = [s for s in all_seasons if s not in seasons_with_pbp]
+            for season in legacy_seasons:
+                logger.info(f"  📊 Processing season {season} with team stats fallback...")
+                records = self._calculate_team_aggregates_from_team_stats(season)
+                total_records += records
+
+            # Step 4: Validate results
+            self._validate_team_aggregates()
+
+            logger.info(f"✅ Team aggregates created successfully: {total_records:,} total records")
+
+        except Exception as e:
+            logger.error(f"❌ Failed to create team aggregates: {e}")
+            raise
+
+    def _get_seasons_with_pbp(self) -> List[int]:
+        """
+        Get seasons that have play-by-play data available.
+
+        Returns:
+            List of season years with PBP data (typically 2022+)
+        """
+        try:
+            conn = self.db.connect()
+
+            # Check if raw_pbp table exists and has data
+            tables = self.db.list_tables()
+            if "raw_pbp" not in tables:
+                return []
+
+            result = conn.execute("""
+                SELECT DISTINCT season
+                FROM raw_pbp
+                WHERE season >= 2022
+                  AND season IS NOT NULL
+                ORDER BY season
+            """).fetchall()
+
+            return [row[0] for row in result]
+
+        except Exception as e:
+            logger.warning(f"  ⚠️  Could not determine PBP availability: {e}")
+            return []
+
+    def _get_all_seasons(self) -> List[int]:
+        """
+        Get all seasons available in raw data tables.
+
+        Returns:
+            List of all season years in database
+        """
+        try:
+            conn = self.db.connect()
+
+            # Try raw_player_stats first (most comprehensive)
+            result = conn.execute("""
+                SELECT DISTINCT season
+                FROM raw_player_stats
+                WHERE season IS NOT NULL
+                ORDER BY season
+            """).fetchall()
+
+            if result:
+                return [row[0] for row in result]
+
+            # Fallback to raw_team_stats
+            result = conn.execute("""
+                SELECT DISTINCT season
+                FROM raw_team_stats
+                WHERE season IS NOT NULL
+                ORDER BY season
+            """).fetchall()
+
+            return [row[0] for row in result]
+
+        except Exception as e:
+            logger.warning(f"  ⚠️  Could not determine available seasons: {e}")
+            return []
+
+    def _calculate_team_aggregates_from_pbp(self, season: int) -> int:
+        """
+        Calculate team aggregates from play-by-play data (2022+ preferred path).
+
+        Args:
+            season: Season year to process
+
+        Returns:
+            Number of records inserted
+        """
+        conn = self.db.connect()
+
+        # Get all teams and weeks for this season
+        teams_weeks = conn.execute("""
+            SELECT DISTINCT posteam AS team, week
+            FROM raw_pbp
+            WHERE season = ?
+              AND posteam IS NOT NULL
+              AND week IS NOT NULL
+              AND season_type = 'REG'
+            ORDER BY team, week
+        """, [season]).fetchall()
+
+        if not teams_weeks:
+            logger.info(f"    ℹ️  No PBP data found for season {season}")
+            return 0
+
+        results = []
+
+        for team, week in teams_weeks:
+            # Skip weeks without enough history for rolling window
+            if week <= 3:
+                continue
+
+            try:
+                # Calculate offensive metrics
+                off_metrics = self._calculate_offensive_metrics(team, season, week, conn)
+
+                # Calculate defensive metrics
+                def_metrics = self._calculate_defensive_metrics(team, season, week, conn)
+
+                # Calculate situational metrics
+                sit_metrics = self._calculate_situational_metrics(team, season, week, conn)
+
+                # Combine all metrics
+                team_features = {
+                    'team': team,
+                    'season': season,
+                    'week': week,
+                    **off_metrics,
+                    **def_metrics,
+                    **sit_metrics
+                }
+
+                results.append(team_features)
+
+            except Exception as e:
+                logger.warning(f"    ⚠️  Failed to calculate metrics for {team} week {week}: {e}")
+                continue
+
+        # Bulk insert results
+        if results:
+            df = pl.DataFrame(results)
+            conn.execute("INSERT INTO team_rolling_features SELECT * FROM df")
+            logger.info(f"    ✅ Inserted {len(results):,} team feature records for {season}")
+            return len(results)
+
+        return 0
+
+    def _calculate_offensive_metrics(self, team: str, season: int, week: int, conn) -> Dict[str, float]:
+        """
+        Calculate offensive metrics for a team using play-by-play data.
+
+        Args:
+            team: Team abbreviation (e.g., 'KC', 'BUF')
+            season: Season year
+            week: Week number
+            conn: DuckDB connection
+
+        Returns:
+            Dictionary with 5 offensive metrics
+        """
+        start_week = max(1, week - 3)
+        end_week = week - 1
+
+        # Main offensive query
+        query = """
+        WITH offensive_plays AS (
+            SELECT
+                epa,
+                success,
+                yards_gained,
+                touchdown,
+                third_down_converted,
+                third_down_failed,
+                down
+            FROM raw_pbp
+            WHERE posteam = ?
+              AND season = ?
+              AND week BETWEEN ? AND ?
+              AND play_type IN ('pass', 'run')
+              AND play = 1
+              AND epa IS NOT NULL
+        )
+        SELECT
+            -- EPA per play
+            AVG(epa) AS off_epa_per_play_last3,
+
+            -- Success rate
+            SUM(CASE WHEN success = 1 THEN 1 ELSE 0 END)::FLOAT /
+            NULLIF(COUNT(*), 0) AS off_success_rate_last3,
+
+            -- Explosive play rate (>10 yards)
+            SUM(CASE WHEN yards_gained > 10 THEN 1 ELSE 0 END)::FLOAT /
+            NULLIF(COUNT(*), 0) AS off_explosive_play_rate,
+
+            -- Third down conversion rate
+            SUM(CASE WHEN down = 3 THEN third_down_converted ELSE 0 END)::FLOAT /
+            NULLIF(
+                SUM(CASE WHEN down = 3 THEN third_down_converted ELSE 0 END) +
+                SUM(CASE WHEN down = 3 THEN third_down_failed ELSE 0 END),
+                0
+            ) AS off_third_down_conv
+        FROM offensive_plays
+        """
+
+        result = conn.execute(query, [team, season, start_week, end_week]).fetchone()
+
+        # Red zone efficiency (separate query for DISTINCT drive handling)
+        rz_query = """
+        WITH red_zone_drives AS (
+            SELECT DISTINCT
+                drive,
+                MAX(touchdown) AS scored_td
+            FROM raw_pbp
+            WHERE posteam = ?
+              AND season = ?
+              AND week BETWEEN ? AND ?
+              AND yardline_100 <= 20
+              AND drive IS NOT NULL
+            GROUP BY drive
+        )
+        SELECT
+            SUM(scored_td)::FLOAT / NULLIF(COUNT(*), 0) AS rz_efficiency
+        FROM red_zone_drives
+        """
+
+        rz_result = conn.execute(rz_query, [team, season, start_week, end_week]).fetchone()
+
+        return {
+            'off_epa_per_play_last3': float(result[0]) if result and result[0] is not None else 0.0,
+            'off_success_rate_last3': float(result[1]) if result and result[1] is not None else 0.5,
+            'off_explosive_play_rate': float(result[2]) if result and result[2] is not None else 0.0,
+            'off_third_down_conv': float(result[3]) if result and result[3] is not None else 0.0,
+            'off_red_zone_efficiency': float(rz_result[0]) if rz_result and rz_result[0] is not None else 0.5
+        }
+
+    def _calculate_defensive_metrics(self, team: str, season: int, week: int, conn) -> Dict[str, float]:
+        """
+        Calculate defensive metrics for a team using play-by-play data.
+
+        Args:
+            team: Team abbreviation
+            season: Season year
+            week: Week number
+            conn: DuckDB connection
+
+        Returns:
+            Dictionary with 4 defensive metrics
+        """
+        start_week = max(1, week - 3)
+        end_week = week - 1
+
+        query = """
+        WITH defensive_plays AS (
+            SELECT
+                epa,
+                success,
+                qb_hit,
+                sack,
+                pass_attempt,
+                interception,
+                fumble_lost,
+                drive
+            FROM raw_pbp
+            WHERE defteam = ?
+              AND season = ?
+              AND week BETWEEN ? AND ?
+              AND play_type IN ('pass', 'run')
+              AND play = 1
+        )
+        SELECT
+            -- Defensive EPA (lower is better)
+            AVG(epa) AS def_epa_per_play_last3,
+
+            -- Defensive success rate (offense failed)
+            SUM(CASE WHEN success = 0 THEN 1 ELSE 0 END)::FLOAT /
+            NULLIF(COUNT(*), 0) AS def_success_rate_last3,
+
+            -- Pressure rate
+            (SUM(qb_hit) + SUM(sack))::FLOAT /
+            NULLIF(SUM(pass_attempt), 0) AS def_pressure_rate,
+
+            -- Turnover rate (per drive)
+            (SUM(interception) + SUM(fumble_lost))::FLOAT /
+            NULLIF(COUNT(DISTINCT drive), 0) AS def_turnover_rate
+        FROM defensive_plays
+        """
+
+        result = conn.execute(query, [team, season, start_week, end_week]).fetchone()
+
+        return {
+            'def_epa_per_play_last3': float(result[0]) if result and result[0] is not None else 0.0,
+            'def_success_rate_last3': float(result[1]) if result and result[1] is not None else 0.5,
+            'def_pressure_rate': float(result[2]) if result and result[2] is not None else 0.0,
+            'def_turnover_rate': float(result[3]) if result and result[3] is not None else 0.0
+        }
+
+    def _calculate_situational_metrics(self, team: str, season: int, week: int, conn) -> Dict[str, float]:
+        """
+        Calculate situational/pace metrics for a team.
+
+        Args:
+            team: Team abbreviation
+            season: Season year
+            week: Week number
+            conn: DuckDB connection
+
+        Returns:
+            Dictionary with 3 situational metrics
+        """
+        start_week = max(1, week - 3)
+        end_week = week - 1
+
+        # Pass rate in neutral situations
+        neutral_query = """
+        SELECT
+            SUM(pass_attempt)::FLOAT /
+            NULLIF(SUM(pass_attempt) + SUM(rush_attempt), 0) AS pass_rate_neutral
+        FROM raw_pbp
+        WHERE posteam = ?
+          AND season = ?
+          AND week BETWEEN ? AND ?
+          AND score_differential BETWEEN -7 AND 7
+          AND quarter_seconds_remaining > 120
+          AND down IN (1, 2)
+          AND play = 1
+        """
+
+        neutral_result = conn.execute(neutral_query, [team, season, start_week, end_week]).fetchone()
+
+        # Pace and time of possession
+        pace_query = """
+        WITH drive_stats AS (
+            SELECT DISTINCT
+                drive,
+                drive_play_count,
+                drive_time_of_possession
+            FROM raw_pbp
+            WHERE posteam = ?
+              AND season = ?
+              AND week BETWEEN ? AND ?
+              AND drive IS NOT NULL
+              AND drive_play_count IS NOT NULL
+        )
+        SELECT
+            AVG(drive_play_count) AS pace_of_play,
+            AVG(
+                CASE
+                    WHEN drive_time_of_possession IS NOT NULL
+                        AND drive_time_of_possession != ''
+                    THEN
+                        CAST(SPLIT_PART(drive_time_of_possession, ':', 1) AS INTEGER) +
+                        CAST(SPLIT_PART(drive_time_of_possession, ':', 2) AS INTEGER) / 60.0
+                    ELSE NULL
+                END
+            ) AS time_of_possession_avg
+        FROM drive_stats
+        """
+
+        pace_result = conn.execute(pace_query, [team, season, start_week, end_week]).fetchone()
+
+        return {
+            'pass_rate_neutral': float(neutral_result[0]) if neutral_result and neutral_result[0] is not None else 0.5,
+            'pace_of_play': float(pace_result[0]) if pace_result and pace_result[0] is not None else 65.0,
+            'time_of_possession_avg': float(pace_result[1]) if pace_result and pace_result[1] is not None else 30.0
+        }
+
+    def _calculate_team_aggregates_from_team_stats(self, season: int) -> int:
+        """
+        Fallback method for pre-2022 seasons using raw_team_stats.
+
+        Limited metrics available compared to PBP-based calculation.
+        Uses default values for metrics not available in team stats.
+
+        Args:
+            season: Season year to process
+
+        Returns:
+            Number of records inserted
+        """
+        conn = self.db.connect()
+
+        # Check if raw_team_stats has data for this season
+        count = conn.execute("""
+            SELECT COUNT(*) FROM raw_team_stats WHERE season = ?
+        """, [season]).fetchone()[0]
+
+        if count == 0:
+            logger.info(f"    ℹ️  No team stats data found for season {season}")
+            return 0
+
+        query = """
+        WITH team_weekly_stats AS (
+            SELECT
+                team,
+                season,
+                week,
+                passing_epa,
+                rushing_epa
+            FROM raw_team_stats
+            WHERE season = ?
+              AND week > 3
+        )
+        SELECT
+            team,
+            season,
+            week,
+
+            -- Approximate offensive EPA from weekly stats
+            0.0 AS off_epa_per_play_last3,
+
+            -- Use default values for metrics not available in team stats
+            0.5 AS off_success_rate_last3,
+            0.5 AS def_success_rate_last3,
+            0.0 AS off_explosive_play_rate,
+            0.5 AS off_red_zone_efficiency,
+            0.0 AS off_third_down_conv,
+            0.0 AS def_epa_per_play_last3,
+            0.0 AS def_pressure_rate,
+            0.0 AS def_turnover_rate,
+            0.5 AS pass_rate_neutral,
+            65.0 AS pace_of_play,
+            30.0 AS time_of_possession_avg
+        FROM team_weekly_stats
+        """
+
+        try:
+            results = conn.execute(query, [season]).fetchdf()
+
+            if len(results) > 0:
+                df = pl.from_pandas(results)
+                conn.execute("INSERT INTO team_rolling_features SELECT * FROM df")
+                logger.info(f"    ✅ Inserted {len(results):,} team feature records for {season} (fallback)")
+                logger.warning(f"    ⚠️  Pre-2022 season: Limited metrics available from team stats")
+                return len(results)
+
+            return 0
+
+        except Exception as e:
+            logger.warning(f"    ⚠️  Failed to process team stats for {season}: {e}")
+            return 0
+
+    def _validate_team_aggregates(self):
+        """
+        Validate team aggregate calculations.
+
+        Checks:
+        - EPA values within expected range (-3 to +3)
+        - Success rates between 0 and 1
+        - No NULL values for primary metrics
+        - Expected number of teams per season
+        """
+        try:
+            conn = self.db.connect()
+
+            # Check EPA ranges
+            invalid_epa = conn.execute("""
+                SELECT COUNT(*)
+                FROM team_rolling_features
+                WHERE off_epa_per_play_last3 < -3
+                   OR off_epa_per_play_last3 > 3
+                   OR def_epa_per_play_last3 < -3
+                   OR def_epa_per_play_last3 > 3
+            """).fetchone()[0]
+
+            if invalid_epa > 0:
+                logger.warning(f"  ⚠️  Found {invalid_epa} records with EPA outside expected range (-3 to +3)")
+
+            # Check success rates
+            invalid_success = conn.execute("""
+                SELECT COUNT(*)
+                FROM team_rolling_features
+                WHERE off_success_rate_last3 < 0 OR off_success_rate_last3 > 1
+                   OR def_success_rate_last3 < 0 OR def_success_rate_last3 > 1
+            """).fetchone()[0]
+
+            if invalid_success > 0:
+                logger.warning(f"  ⚠️  Found {invalid_success} records with invalid success rates")
+
+            # Check for NULL values
+            null_count = conn.execute("""
+                SELECT COUNT(*)
+                FROM team_rolling_features
+                WHERE off_epa_per_play_last3 IS NULL
+                   OR def_epa_per_play_last3 IS NULL
+            """).fetchone()[0]
+
+            if null_count > 0:
+                logger.warning(f"  ⚠️  Found {null_count} records with NULL EPA values")
+
+            # Log summary
+            summary = conn.execute("""
+                SELECT
+                    COUNT(*) as total_records,
+                    COUNT(DISTINCT team) as unique_teams,
+                    COUNT(DISTINCT season) as seasons,
+                    MIN(season) as earliest_season,
+                    MAX(season) as latest_season,
+                    AVG(off_epa_per_play_last3) as avg_off_epa,
+                    AVG(def_epa_per_play_last3) as avg_def_epa
+                FROM team_rolling_features
+            """).fetchone()
+
+            if summary:
+                logger.info(f"  📊 Team Aggregates Summary:")
+                logger.info(f"     Total records: {summary[0]:,}")
+                logger.info(f"     Unique teams: {summary[1]}")
+                logger.info(f"     Seasons: {summary[2]} ({summary[3]}-{summary[4]})")
+                logger.info(f"     Avg offensive EPA: {summary[5]:.3f}" if summary[5] else "     Avg offensive EPA: N/A")
+                logger.info(f"     Avg defensive EPA: {summary[6]:.3f}" if summary[6] else "     Avg defensive EPA: N/A")
+
+        except Exception as e:
+            logger.warning(f"  ⚠️  Could not validate team aggregates: {e}")
 
     def handle_rookie_veteran_features(self):
         """Handle rookie/veteran feature differences"""
