@@ -16,16 +16,21 @@ from .database import NFLDatabase, PlayerStatsManager, FeatureManager
 from .config import config
 from .batch_processor import BatchProcessor, ProgressTracker
 from .table_schemas import (
-    create_raw_nextgen_passing_table, create_raw_nextgen_rushing_table,
-    create_raw_nextgen_receiving_table, create_raw_snap_counts_table,
-    create_raw_pbp_table, create_raw_players_table, create_raw_ftn_charting_table,
-    create_raw_participation_table, create_raw_draft_picks_table, create_raw_combine_table
+    create_raw_nextgen_passing_table,
+    create_raw_nextgen_rushing_table,
+    create_raw_nextgen_receiving_table,
+    create_raw_snap_counts_table,
+    create_raw_pbp_table,
+    create_raw_players_table,
+    create_raw_ftn_charting_table,
+    create_raw_participation_table,
+    create_raw_draft_picks_table,
+    create_raw_combine_table,
 )
 
 
 logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s'
+    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
 )
 logger = logging.getLogger(__name__)
 
@@ -98,28 +103,34 @@ class NFLDataPipeline:
 
             if not player_stats.is_empty():
                 result = self.batch_processor.process_dataframe_to_table(
-                    player_stats, 'raw_player_stats', f'Player Stats {season}'
+                    player_stats, "raw_player_stats", f"Player Stats {season}"
                 )
                 self.progress_tracker.add_result(result)
             else:
                 logger.warning(f"  ⚠️  No player stats found for {season}")
 
             if season >= 2016:
-                for stat_type in ['passing', 'rushing', 'receiving']:
+                for stat_type in ["passing", "rushing", "receiving"]:
                     try:
                         logger.info(f"  Loading Next Gen {stat_type} stats...")
-                        ngs = nfl.load_nextgen_stats(stat_type=stat_type, seasons=season)
+                        ngs = nfl.load_nextgen_stats(
+                            stat_type=stat_type, seasons=season
+                        )
 
                         if not ngs.is_empty():
-                            table_name = f'raw_nextgen_{stat_type}'
+                            table_name = f"raw_nextgen_{stat_type}"
                             self._ensure_nextgen_table_exists(table_name, stat_type)
                             result = self.batch_processor.process_dataframe_to_table(
-                                ngs, table_name, f'Next Gen {stat_type.title()} {season}'
+                                ngs,
+                                table_name,
+                                f"Next Gen {stat_type.title()} {season}",
                             )
                             self.progress_tracker.add_result(result)
 
                     except Exception as e:
-                        logger.warning(f"  ⚠️  Next Gen {stat_type} failed for {season}: {e}")
+                        logger.warning(
+                            f"  ⚠️  Next Gen {stat_type} failed for {season}: {e}"
+                        )
 
             if season >= 2012:
                 try:
@@ -129,7 +140,7 @@ class NFLDataPipeline:
                     if not snaps.is_empty():
                         self._ensure_snap_counts_table_exists()
                         result = self.batch_processor.process_dataframe_to_table(
-                            snaps, 'raw_snap_counts', f'Snap Counts {season}'
+                            snaps, "raw_snap_counts", f"Snap Counts {season}"
                         )
                         self.progress_tracker.add_result(result)
 
@@ -150,7 +161,7 @@ class NFLDataPipeline:
 
             if not team_stats.is_empty():
                 result = self.batch_processor.process_dataframe_to_table(
-                    team_stats, 'raw_team_stats', f'Team Stats {season}'
+                    team_stats, "raw_team_stats", f"Team Stats {season}"
                 )
                 self.progress_tracker.add_result(result)
 
@@ -161,7 +172,7 @@ class NFLDataPipeline:
                 season_schedules = schedules.filter(pl.col("season") == season)
                 if not season_schedules.is_empty():
                     result = self.batch_processor.process_dataframe_to_table(
-                        season_schedules, 'raw_schedules', f'Schedules {season}'
+                        season_schedules, "raw_schedules", f"Schedules {season}"
                     )
                     self.progress_tracker.add_result(result)
 
@@ -173,7 +184,7 @@ class NFLDataPipeline:
                     if not pbp.is_empty():
                         self._ensure_pbp_table_exists()
                         result = self.batch_processor.process_dataframe_to_table(
-                            pbp, 'raw_pbp', f'Play-by-Play {season}'
+                            pbp, "raw_pbp", f"Play-by-Play {season}"
                         )
                         self.progress_tracker.add_result(result)
 
@@ -194,7 +205,7 @@ class NFLDataPipeline:
 
             if not rosters_weekly.is_empty():
                 result = self.batch_processor.process_dataframe_to_table(
-                    rosters_weekly, 'raw_rosters_weekly', f'Weekly Rosters {season}'
+                    rosters_weekly, "raw_rosters_weekly", f"Weekly Rosters {season}"
                 )
                 self.progress_tracker.add_result(result)
 
@@ -207,7 +218,7 @@ class NFLDataPipeline:
                     logger.info("  📅 Applied 2025+ timestamp processing")
 
                 result = self.batch_processor.process_dataframe_to_table(
-                    depth_charts, 'raw_depth_charts', f'Depth Charts {season}'
+                    depth_charts, "raw_depth_charts", f"Depth Charts {season}"
                 )
                 self.progress_tracker.add_result(result)
 
@@ -218,7 +229,7 @@ class NFLDataPipeline:
                 if not players.is_empty():
                     self._ensure_players_table_exists()
                     result = self.batch_processor.process_dataframe_to_table(
-                        players, 'raw_players', f'Player Metadata'
+                        players, "raw_players", f"Player Metadata"
                     )
                     self.progress_tracker.add_result(result)
 
@@ -237,7 +248,7 @@ class NFLDataPipeline:
 
                 if not ftn.is_empty():
                     self._ensure_ftn_table_exists()
-                    rows_inserted = self.db.store_dataframe(ftn, 'raw_ftn_charting')
+                    rows_inserted = self.db.store_dataframe(ftn, "raw_ftn_charting")
                     logger.info(f"  ✅ Stored {rows_inserted:,} FTN charting records")
 
             except Exception as e:
@@ -250,7 +261,9 @@ class NFLDataPipeline:
 
                 if not participation.is_empty():
                     self._ensure_participation_table_exists()
-                    rows_inserted = self.db.store_dataframe(participation, 'raw_participation')
+                    rows_inserted = self.db.store_dataframe(
+                        participation, "raw_participation"
+                    )
                     logger.info(f"  ✅ Stored {rows_inserted:,} participation records")
 
             except Exception as e:
@@ -263,7 +276,9 @@ class NFLDataPipeline:
 
                 if not draft_picks.is_empty():
                     self._ensure_draft_table_exists()
-                    rows_inserted = self.db.store_dataframe(draft_picks, 'raw_draft_picks')
+                    rows_inserted = self.db.store_dataframe(
+                        draft_picks, "raw_draft_picks"
+                    )
                     logger.info(f"  ✅ Stored {rows_inserted:,} draft pick records")
 
                 logger.info("  Loading combine data...")
@@ -271,7 +286,7 @@ class NFLDataPipeline:
 
                 if not combine.is_empty():
                     self._ensure_combine_table_exists()
-                    rows_inserted = self.db.store_dataframe(combine, 'raw_combine')
+                    rows_inserted = self.db.store_dataframe(combine, "raw_combine")
                     logger.info(f"  ✅ Stored {rows_inserted:,} combine records")
 
             except Exception as e:
@@ -285,27 +300,43 @@ class NFLDataPipeline:
         logger.info("📅 Processing 2025+ depth chart timestamp format")
 
         try:
-            processed_df = df.with_columns([
-                pl.col("dt").str.strptime(pl.Datetime, "%Y-%m-%dT%H:%M:%SZ").alias("dt_timestamp"),
-
-                pl.when(pl.col("dt").str.strptime(pl.Datetime, "%Y-%m-%dT%H:%M:%SZ").dt.month() <= 8)
-                .then(1)
-                .otherwise(
-                    ((pl.col("dt").str.strptime(pl.Datetime, "%Y-%m-%dT%H:%M:%SZ").dt.ordinal_day() - 244) / 7 + 1).cast(pl.Int32)
-                ).alias("week"),
-
-                pl.lit(season).alias("season")
-            ])
+            processed_df = df.with_columns(
+                [
+                    pl.col("dt")
+                    .str.strptime(pl.Datetime, "%Y-%m-%dT%H:%M:%SZ")
+                    .alias("dt_timestamp"),
+                    pl.when(
+                        pl.col("dt")
+                        .str.strptime(pl.Datetime, "%Y-%m-%dT%H:%M:%SZ")
+                        .dt.month()
+                        <= 8
+                    )
+                    .then(1)
+                    .otherwise(
+                        (
+                            (
+                                pl.col("dt")
+                                .str.strptime(pl.Datetime, "%Y-%m-%dT%H:%M:%SZ")
+                                .dt.ordinal_day()
+                                - 244
+                            )
+                            / 7
+                            + 1
+                        ).cast(pl.Int32)
+                    )
+                    .alias("week"),
+                    pl.lit(season).alias("season"),
+                ]
+            )
 
             logger.info("✅ 2025+ timestamp processing completed")
             return processed_df
 
         except Exception as e:
             logger.error(f"❌ 2025+ timestamp processing failed: {e}")
-            return df.with_columns([
-                pl.col("dt").alias("dt_timestamp"),
-                pl.lit(1).alias("week")
-            ])
+            return df.with_columns(
+                [pl.col("dt").alias("dt_timestamp"), pl.lit(1).alias("week")]
+            )
 
     def process_roster_snapshots(self):
         """
@@ -373,11 +404,11 @@ class NFLDataPipeline:
     def _ensure_nextgen_table_exists(self, table_name: str, stat_type: str):
         """Create Next Gen Stats table if it doesn't exist"""
         conn = self.db.connect()
-        if stat_type == 'passing':
+        if stat_type == "passing":
             create_raw_nextgen_passing_table(conn)
-        elif stat_type == 'rushing':
+        elif stat_type == "rushing":
             create_raw_nextgen_rushing_table(conn)
-        elif stat_type == 'receiving':
+        elif stat_type == "receiving":
             create_raw_nextgen_receiving_table(conn)
 
     def _ensure_snap_counts_table_exists(self):
@@ -419,7 +450,7 @@ class NFLDataPipeline:
         """Retry failed season load with exponential backoff"""
         for attempt in range(self.retry_attempts):
             try:
-                wait_time = (2 ** attempt) * self.rate_limit_delay
+                wait_time = (2**attempt) * self.rate_limit_delay
                 logger.info(f"⏰ Retry attempt {attempt + 1}, waiting {wait_time}s")
                 time.sleep(wait_time)
 
@@ -435,7 +466,9 @@ class NFLDataPipeline:
                 logger.warning(f"⚠️  Retry {attempt + 1} failed: {e}")
 
         logger.error(f"❌ All retries exhausted for season {season}")
-        raise Exception(f"Failed to load season {season} after {self.retry_attempts} attempts")
+        raise Exception(
+            f"Failed to load season {season} after {self.retry_attempts} attempts"
+        )
 
     def build_player_lifecycle_table(self) -> int:
         """
@@ -458,13 +491,17 @@ class NFLDataPipeline:
 
             # Check if required tables exist
             tables = self.db.list_tables()
-            required = ['raw_players', 'raw_rosters_weekly', 'raw_player_stats']
+            required = ["raw_players", "raw_rosters_weekly", "raw_player_stats"]
             missing = [t for t in required if t not in tables]
             if missing:
-                raise ValueError(f"Missing required tables: {missing}. Please run Stage 1 first.")
+                raise ValueError(
+                    f"Missing required tables: {missing}. Please run Stage 1 first."
+                )
 
             # Check for data in source tables
-            player_count = conn.execute("SELECT COUNT(*) FROM raw_players").fetchone()[0]
+            player_count = conn.execute("SELECT COUNT(*) FROM raw_players").fetchone()[
+                0
+            ]
             if player_count == 0:
                 logger.warning("⚠️  raw_players is empty, skipping lifecycle build")
                 return 0
@@ -477,7 +514,8 @@ class NFLDataPipeline:
 
             # Build lifecycle table using SQL
             logger.info("  📊 Calculating career spans...")
-            conn.execute("""
+            conn.execute(
+                """
                 INSERT INTO player_lifecycle
                 WITH player_metadata AS (
                     SELECT
@@ -568,7 +606,8 @@ class NFLDataPipeline:
                 FROM player_metadata pm
                 LEFT JOIN career_span_rosters csr ON pm.gsis_id = csr.gsis_id
                 LEFT JOIN career_span_stats css ON pm.player_id = css.player_id
-            """)
+            """
+            )
 
             # Get count of inserted records
             result = conn.execute("SELECT COUNT(*) FROM player_lifecycle").fetchone()
@@ -577,7 +616,8 @@ class NFLDataPipeline:
             logger.info(f"✅ Built player lifecycle for {rows_inserted:,} players")
 
             # Log summary statistics
-            summary = conn.execute("""
+            summary = conn.execute(
+                """
                 SELECT
                     COUNT(*) as total_players,
                     COUNT(*) FILTER (WHERE retirement_status = 'active') as active,
@@ -586,11 +626,14 @@ class NFLDataPipeline:
                     MIN(first_nfl_season) as earliest_season,
                     MAX(last_nfl_season) as latest_season
                 FROM player_lifecycle
-            """).fetchone()
+            """
+            ).fetchone()
 
             if summary:
                 logger.info(f"  📊 Career span: {summary[4]} - {summary[5]}")
-                logger.info(f"  📊 Active: {summary[1]:,} | Retired: {summary[2]:,} | Inactive: {summary[3]:,}")
+                logger.info(
+                    f"  📊 Active: {summary[1]:,} | Retired: {summary[2]:,} | Inactive: {summary[3]:,}"
+                )
 
             return rows_inserted
 
@@ -619,10 +662,12 @@ class NFLDataPipeline:
 
             # Check if required tables exist
             tables = self.db.list_tables()
-            required = ['raw_rosters_weekly']
+            required = ["raw_rosters_weekly"]
             missing = [t for t in required if t not in tables]
             if missing:
-                raise ValueError(f"Missing required tables: {missing}. Please run Stage 1 first.")
+                raise ValueError(
+                    f"Missing required tables: {missing}. Please run Stage 1 first."
+                )
 
             # Clear existing data
             conn.execute("DELETE FROM team_roster_snapshots")
@@ -630,7 +675,8 @@ class NFLDataPipeline:
 
             # Build roster snapshots using SQL
             logger.info("  📊 Building roster snapshots...")
-            conn.execute("""
+            conn.execute(
+                """
                 INSERT INTO team_roster_snapshots
                 WITH roster_base AS (
                     SELECT
@@ -779,25 +825,32 @@ class NFLDataPipeline:
                     AND rs.week = di.week
                 LEFT JOIN roster_changes rc
                     ON rs.snapshot_id = rc.snapshot_id
-            """)
+            """
+            )
 
             # Get count of inserted records
-            result = conn.execute("SELECT COUNT(*) FROM team_roster_snapshots").fetchone()
+            result = conn.execute(
+                "SELECT COUNT(*) FROM team_roster_snapshots"
+            ).fetchone()
             rows_inserted = result[0] if result else 0
 
             logger.info(f"✅ Created {rows_inserted:,} roster snapshots")
 
             # Log summary statistics
-            summary = conn.execute("""
+            summary = conn.execute(
+                """
                 SELECT
                     COUNT(DISTINCT team) as teams,
                     COUNT(DISTINCT season) as seasons,
                     COUNT(DISTINCT week) as weeks
                 FROM team_roster_snapshots
-            """).fetchone()
+            """
+            ).fetchone()
 
             if summary:
-                logger.info(f"  📊 Teams: {summary[0]} | Seasons: {summary[1]} | Weeks: {summary[2]}")
+                logger.info(
+                    f"  📊 Teams: {summary[0]} | Seasons: {summary[1]} | Weeks: {summary[2]}"
+                )
 
             return rows_inserted
 
@@ -829,10 +882,14 @@ class NFLDataPipeline:
 
             # Check if lifecycle table exists and has data
             tables = self.db.list_tables()
-            if 'player_lifecycle' not in tables:
-                raise ValueError("player_lifecycle table doesn't exist. Run build_player_lifecycle_table() first.")
+            if "player_lifecycle" not in tables:
+                raise ValueError(
+                    "player_lifecycle table doesn't exist. Run build_player_lifecycle_table() first."
+                )
 
-            lifecycle_count = conn.execute("SELECT COUNT(*) FROM player_lifecycle").fetchone()[0]
+            lifecycle_count = conn.execute(
+                "SELECT COUNT(*) FROM player_lifecycle"
+            ).fetchone()[0]
             if lifecycle_count == 0:
                 logger.warning("⚠️  player_lifecycle is empty, skipping classification")
                 return 0
@@ -847,7 +904,8 @@ class NFLDataPipeline:
             conn.execute("DELETE FROM player_experience_classification")
 
             # Build classification table using SQL
-            conn.execute(f"""
+            conn.execute(
+                f"""
                 INSERT INTO player_experience_classification
                 WITH player_seasons AS (
                     SELECT DISTINCT
@@ -893,16 +951,20 @@ class NFLDataPipeline:
                     CURRENT_TIMESTAMP as created_at
 
                 FROM player_seasons
-            """)
+            """
+            )
 
             # Get count of inserted records
-            result = conn.execute("SELECT COUNT(*) FROM player_experience_classification").fetchone()
+            result = conn.execute(
+                "SELECT COUNT(*) FROM player_experience_classification"
+            ).fetchone()
             rows_inserted = result[0] if result else 0
 
             logger.info(f"✅ Classified {rows_inserted:,} player-season combinations")
 
             # Log distribution
-            distribution = conn.execute("""
+            distribution = conn.execute(
+                """
                 SELECT
                     experience_category,
                     COUNT(*) as count,
@@ -910,10 +972,13 @@ class NFLDataPipeline:
                 FROM player_experience_classification
                 GROUP BY experience_category
                 ORDER BY experience_category
-            """).fetchall()
+            """
+            ).fetchall()
 
             for row in distribution:
-                logger.info(f"  📊 {row[0]}: {row[1]:,} records (confidence: {row[2]:.1f})")
+                logger.info(
+                    f"  📊 {row[0]}: {row[1]:,} records (confidence: {row[2]:.1f})"
+                )
 
             return rows_inserted
 
@@ -922,9 +987,604 @@ class NFLDataPipeline:
             raise
 
     def calculate_rolling_statistics(self):
-        """Calculate rolling averages and trends"""
+        """
+        Calculate rolling averages, trends, and consistency metrics for all players.
+
+        Implements Stage 3a from ROLLING_STATS_IMPLEMENTATION_PLAN.md
+
+        For each position:
+        - Calculates rolling statistics over 3, 5, and 10 game windows
+        - Computes averages, standard deviations, trends (linear regression slopes)
+        - Tracks min/max values and games in window for confidence weighting
+        - Stores results in JSON format in player_rolling_features table
+
+        Features calculated:
+        - Rolling averages (AVG over window)
+        - Consistency metrics (STDDEV)
+        - Performance trends (REGR_SLOPE for linear regression)
+        - MIN/MAX values in window
+        - games_in_window metadata for ML confidence
+
+        Edge cases handled:
+        - Players with < 10 games (calculates with available data)
+        - Missing weeks due to injury/bye (ROWS BETWEEN skips naturally)
+        - Cross-season windows (week 2 of 2024 can include 2023 games)
+        - Position-specific stats (QB doesn't get receiving stats, etc.)
+
+        Returns:
+            None. Results stored in player_rolling_features table.
+
+        Raises:
+            ValueError: If raw_player_stats table is empty
+            Exception: If database operation fails
+        """
         logger.info("📈 Calculating rolling statistics...")
-        # TODO: Implement from DATA_SETUP.md
+
+        try:
+            conn = self.db.connect()
+
+            # Validate raw_player_stats exists and has data
+            tables = self.db.list_tables()
+            if "raw_player_stats" not in tables:
+                raise ValueError(
+                    "raw_player_stats table not found. Please run Stage 1 first."
+                )
+
+            player_count = conn.execute(
+                "SELECT COUNT(*) FROM raw_player_stats"
+            ).fetchone()[0]
+            if player_count == 0:
+                logger.warning(
+                    "⚠️  raw_player_stats is empty, skipping rolling stats calculation"
+                )
+                return
+
+            logger.info(f"  📊 Processing {player_count:,} player-game records")
+
+            # Clear existing rolling features
+            conn.execute("DELETE FROM player_rolling_features")
+            logger.info("  🧹 Cleared existing rolling features")
+
+            # Process each position independently for memory efficiency
+            positions = ["QB", "RB", "WR", "TE", "K", "DEF"]
+            windows = config.feature_engineering_config["rolling_windows"]  # [3, 5, 10]
+
+            total_records = 0
+
+            for position in positions:
+                logger.info(f"  🏈 Processing {position} rolling stats...")
+
+                try:
+                    # Get position-specific stats
+                    relevant_stats = config.get_position_stats(position)
+
+                    if not relevant_stats:
+                        logger.warning(
+                            f"    ⚠️  No stats configured for {position}, skipping"
+                        )
+                        continue
+
+                    # Build and execute SQL query with window functions
+                    rolling_df = self._calculate_position_rolling_stats(
+                        position, relevant_stats, windows
+                    )
+
+                    if rolling_df is None or rolling_df.is_empty():
+                        logger.info(f"    ℹ️  No data for {position}")
+                        continue
+
+                    # Transform wide format to JSON columns
+                    feature_df = self._transform_rolling_to_json(
+                        rolling_df, position, windows
+                    )
+
+                    # Store in player_rolling_features table
+                    records_stored = self._store_rolling_features(feature_df)
+                    total_records += records_stored
+
+                    logger.info(
+                        f"    ✅ Stored {records_stored:,} records for {position}"
+                    )
+
+                except Exception as e:
+                    logger.error(f"    ❌ Failed to process {position}: {e}")
+                    # Continue with next position rather than failing entire calculation
+                    continue
+
+            logger.info(
+                f"✅ Rolling statistics calculation complete: {total_records:,} total records"
+            )
+
+            # Log summary statistics
+            self._log_rolling_stats_summary()
+
+        except Exception as e:
+            logger.error(f"❌ Failed to calculate rolling statistics: {e}")
+            raise
+
+    def _calculate_position_rolling_stats(
+        self, position: str, stat_columns: List[str], windows: List[int]
+    ) -> Optional[pl.DataFrame]:
+        """
+        Calculate rolling statistics for a specific position using DuckDB window functions.
+
+        Args:
+            position: Player position (QB, RB, WR, TE, K, DEF)
+            stat_columns: List of relevant stat column names for this position
+            windows: List of window sizes (e.g., [3, 5, 10])
+
+        Returns:
+            Polars DataFrame with rolling statistics, or None if no data
+        """
+        conn = self.db.connect()
+
+        # Filter to only columns that actually exist in raw_player_stats
+        table_columns = [
+            row[0]
+            for row in conn.execute(
+                "SELECT column_name FROM information_schema.columns WHERE table_name = 'raw_player_stats'"
+            ).fetchall()
+        ]
+
+        valid_stats = [s for s in stat_columns if s in table_columns]
+
+        if not valid_stats:
+            logger.warning(f"      ⚠️  No valid stat columns found for {position}")
+            return None
+
+        # Build SELECT clause for stat columns
+        stat_select = ", ".join(valid_stats)
+
+        # Build window function calculations for each stat and window
+        window_calcs = []
+
+        for stat in valid_stats:
+            for window in windows:
+                # Rolling average
+                window_calcs.append(
+                    f"""
+                    AVG({stat}) OVER (
+                        PARTITION BY player_id
+                        ORDER BY season, week
+                        ROWS BETWEEN {window} PRECEDING AND 1 PRECEDING
+                    ) as {stat}_rolling_{window}
+                """
+                )
+
+                # Standard deviation
+                window_calcs.append(
+                    f"""
+                    STDDEV({stat}) OVER (
+                        PARTITION BY player_id
+                        ORDER BY season, week
+                        ROWS BETWEEN {window} PRECEDING AND 1 PRECEDING
+                    ) as {stat}_stddev_{window}
+                """
+                )
+
+                # Trend (linear regression slope)
+                window_calcs.append(
+                    f"""
+                    REGR_SLOPE({stat}, game_number) OVER (
+                        PARTITION BY player_id
+                        ORDER BY season, week
+                        ROWS BETWEEN {window} PRECEDING AND 1 PRECEDING
+                    ) as {stat}_trend_{window}
+                """
+                )
+
+                # Min and Max
+                window_calcs.append(
+                    f"""
+                    MIN({stat}) OVER (
+                        PARTITION BY player_id
+                        ORDER BY season, week
+                        ROWS BETWEEN {window} PRECEDING AND 1 PRECEDING
+                    ) as {stat}_min_{window}
+                """
+                )
+
+                window_calcs.append(
+                    f"""
+                    MAX({stat}) OVER (
+                        PARTITION BY player_id
+                        ORDER BY season, week
+                        ROWS BETWEEN {window} PRECEDING AND 1 PRECEDING
+                    ) as {stat}_max_{window}
+                """
+                )
+
+        # Add games_in_window metadata for each window
+        for window in windows:
+            window_calcs.append(
+                f"""
+                COUNT(*) OVER (
+                    PARTITION BY player_id
+                    ORDER BY season, week
+                    ROWS BETWEEN {window} PRECEDING AND 1 PRECEDING
+                ) as games_in_window_{window}
+            """
+            )
+
+        window_calcs_str = ",\n                ".join(window_calcs)
+
+        # Build complete query
+        query = f"""
+            WITH player_games AS (
+                SELECT
+                    player_id,
+                    player_name,
+                    position,
+                    season,
+                    week,
+                    season_type,
+                    team,
+                    {stat_select},
+                    -- Game sequence number for trend calculation
+                    ROW_NUMBER() OVER (
+                        PARTITION BY player_id
+                        ORDER BY season, week
+                    ) as game_number
+                FROM raw_player_stats
+                WHERE position = '{position}'
+                    AND season_type = 'REG'
+                    AND player_id IS NOT NULL
+                ORDER BY player_id, season, week
+            )
+            SELECT
+                player_id,
+                player_name,
+                position,
+                season,
+                week,
+                team,
+                game_number,
+                {window_calcs_str}
+            FROM player_games
+            WHERE game_number > 1
+            ORDER BY player_id, season, week
+        """
+
+        try:
+            # Execute query and convert to Polars
+            result = conn.execute(query).pl()
+            return result
+        except Exception as e:
+            logger.error(f"      ❌ Query failed for {position}: {e}")
+            return None
+
+    def _transform_rolling_to_json(
+        self, df: pl.DataFrame, position: str, windows: List[int]
+    ) -> pl.DataFrame:
+        """
+        Transform wide-format rolling stats into JSON columns for storage.
+
+        Args:
+            df: DataFrame with rolling stat columns
+            position: Player position
+            windows: List of window sizes
+
+        Returns:
+            DataFrame with JSON columns (stats_last3_games, stats_last5_games, stats_last10_games)
+        """
+        import json
+
+        # Get position-specific stats
+        relevant_stats = config.get_position_stats(position)
+
+        # Create JSON columns for each window
+        for window in windows:
+            json_col_name = f"stats_last{window}_games"
+
+            # Collect all rolling stat columns for this window
+            cols_for_window = [col for col in df.columns if f"_{window}" in col]
+
+            # Build JSON structure per row
+            def build_json_row(row_dict):
+                json_obj = {
+                    "window_size": window,
+                    "games_in_window": row_dict.get(f"games_in_window_{window}", 0),
+                }
+
+                # Organize stats by category
+                for stat in relevant_stats:
+                    avg_col = f"{stat}_rolling_{window}"
+                    stddev_col = f"{stat}_stddev_{window}"
+                    trend_col = f"{stat}_trend_{window}"
+                    min_col = f"{stat}_min_{window}"
+                    max_col = f"{stat}_max_{window}"
+
+                    # Only add if column exists and value is not None
+                    if avg_col in row_dict and row_dict[avg_col] is not None:
+                        json_obj[f"{stat}_avg"] = float(row_dict[avg_col])
+
+                    if stddev_col in row_dict and row_dict[stddev_col] is not None:
+                        json_obj[f"{stat}_stddev"] = float(row_dict[stddev_col])
+
+                    if trend_col in row_dict and row_dict[trend_col] is not None:
+                        json_obj[f"{stat}_trend"] = float(row_dict[trend_col])
+
+                    if min_col in row_dict and row_dict[min_col] is not None:
+                        json_obj[f"{stat}_min"] = float(row_dict[min_col])
+
+                    if max_col in row_dict and row_dict[max_col] is not None:
+                        json_obj[f"{stat}_max"] = float(row_dict[max_col])
+
+                return json.dumps(json_obj)
+
+            # Apply transformation to create JSON column
+            json_data = []
+            for row in df.iter_rows(named=True):
+                json_data.append(build_json_row(row))
+
+            df = df.with_columns(pl.Series(name=json_col_name, values=json_data))
+
+        # Calculate composite trend scalars
+        df = self._calculate_composite_trends(df, position, windows)
+
+        # Select only columns needed for storage
+        keep_cols = ["player_id", "season", "week", "position"]
+        keep_cols.extend([f"stats_last{w}_games" for w in windows])
+        keep_cols.extend(["performance_trend", "usage_trend", "target_share_trend"])
+
+        # Filter to only columns that exist
+        keep_cols = [c for c in keep_cols if c in df.columns]
+
+        return df.select(keep_cols)
+
+    def _calculate_composite_trends(
+        self, df: pl.DataFrame, position: str, windows: List[int]
+    ) -> pl.DataFrame:
+        """
+        Calculate composite trend metrics (performance_trend, usage_trend, target_share_trend).
+
+        Args:
+            df: DataFrame with individual stat trends
+            position: Player position
+            windows: List of window sizes
+
+        Returns:
+            DataFrame with added trend columns
+        """
+        # Use 5-game window for composite trends
+        window = 5
+
+        # Position-specific composite calculations
+        if position == "QB":
+            # performance_trend: weighted average of passing yards, TDs, rushing yards
+            py_col = f"passing_yards_trend_{window}"
+            ptd_col = f"passing_tds_trend_{window}"
+            ry_col = f"rushing_yards_trend_{window}"
+
+            if all(c in df.columns for c in [py_col, ptd_col, ry_col]):
+                df = df.with_columns(
+                    (
+                        0.6 * pl.col(py_col).fill_null(0)
+                        + 0.3
+                        * pl.col(ptd_col).fill_null(0)
+                        * 20  # Scale TDs to yards equivalent
+                        + 0.1 * pl.col(ry_col).fill_null(0)
+                    ).alias("performance_trend")
+                )
+            else:
+                df = df.with_columns(pl.lit(None).alias("performance_trend"))
+
+            # usage_trend: attempts trend
+            att_col = f"attempts_trend_{window}"
+            if att_col in df.columns:
+                df = df.with_columns(pl.col(att_col).alias("usage_trend"))
+            else:
+                df = df.with_columns(pl.lit(None).alias("usage_trend"))
+
+            # target_share_trend: not applicable for QB
+            df = df.with_columns(pl.lit(None).alias("target_share_trend"))
+
+        elif position in ["WR", "TE"]:
+            # performance_trend: weighted average of receiving yards and targets
+            ry_col = f"receiving_yards_trend_{window}"
+            t_col = f"targets_trend_{window}"
+
+            if ry_col in df.columns and t_col in df.columns:
+                df = df.with_columns(
+                    (
+                        0.7 * pl.col(ry_col).fill_null(0)
+                        + 0.3 * pl.col(t_col).fill_null(0) * 10
+                    ).alias(
+                        "performance_trend"
+                    )  # Scale targets
+                )
+            elif ry_col in df.columns:
+                df = df.with_columns(pl.col(ry_col).alias("performance_trend"))
+            else:
+                df = df.with_columns(pl.lit(None).alias("performance_trend"))
+
+            # usage_trend: targets trend
+            if t_col in df.columns:
+                df = df.with_columns(pl.col(t_col).alias("usage_trend"))
+            else:
+                df = df.with_columns(pl.lit(None).alias("usage_trend"))
+
+            # target_share_trend: target share trend if available
+            ts_col = f"target_share_trend_{window}"
+            if ts_col in df.columns:
+                df = df.with_columns(pl.col(ts_col).alias("target_share_trend"))
+            else:
+                df = df.with_columns(pl.lit(None).alias("target_share_trend"))
+
+        elif position == "RB":
+            # performance_trend: weighted average of rushing, receiving yards, and carries
+            rush_y_col = f"rushing_yards_trend_{window}"
+            rec_y_col = f"receiving_yards_trend_{window}"
+            car_col = f"carries_trend_{window}"
+            t_col = f"targets_trend_{window}"
+
+            if all(c in df.columns for c in [rush_y_col, rec_y_col, car_col]):
+                df = df.with_columns(
+                    (
+                        0.6 * pl.col(rush_y_col).fill_null(0)
+                        + 0.3 * pl.col(rec_y_col).fill_null(0)
+                        + 0.1 * pl.col(car_col).fill_null(0) * 4
+                    ).alias(
+                        "performance_trend"
+                    )  # Scale carries
+                )
+            elif rush_y_col in df.columns:
+                df = df.with_columns(pl.col(rush_y_col).alias("performance_trend"))
+            else:
+                df = df.with_columns(pl.lit(None).alias("performance_trend"))
+
+            # usage_trend: carries + targets
+            if car_col in df.columns and t_col in df.columns:
+                df = df.with_columns(
+                    (pl.col(car_col).fill_null(0) + pl.col(t_col).fill_null(0)).alias(
+                        "usage_trend"
+                    )
+                )
+            elif car_col in df.columns:
+                df = df.with_columns(pl.col(car_col).alias("usage_trend"))
+            else:
+                df = df.with_columns(pl.lit(None).alias("usage_trend"))
+
+            # target_share_trend: if available
+            ts_col = f"target_share_trend_{window}"
+            if ts_col in df.columns:
+                df = df.with_columns(pl.col(ts_col).alias("target_share_trend"))
+            else:
+                df = df.with_columns(pl.lit(None).alias("target_share_trend"))
+
+        elif position == "K":
+            # performance_trend: field goal percentage trend
+            fg_pct_col = f"fg_pct_trend_{window}"
+            if fg_pct_col in df.columns:
+                df = df.with_columns(pl.col(fg_pct_col).alias("performance_trend"))
+            else:
+                df = df.with_columns(pl.lit(None).alias("performance_trend"))
+
+            # usage_trend: field goal attempts
+            fg_att_col = f"fg_att_trend_{window}"
+            if fg_att_col in df.columns:
+                df = df.with_columns(pl.col(fg_att_col).alias("usage_trend"))
+            else:
+                df = df.with_columns(pl.lit(None).alias("usage_trend"))
+
+            df = df.with_columns(pl.lit(None).alias("target_share_trend"))
+
+        elif position == "DEF":
+            # performance_trend: weighted average of tackles, sacks, interceptions
+            tack_col = f"def_tackles_solo_trend_{window}"
+            sack_col = f"def_sacks_trend_{window}"
+            int_col = f"def_interceptions_trend_{window}"
+
+            if all(c in df.columns for c in [tack_col, sack_col, int_col]):
+                df = df.with_columns(
+                    (
+                        0.5 * pl.col(tack_col).fill_null(0)
+                        + 0.3 * pl.col(sack_col).fill_null(0) * 2  # Scale sacks
+                        + 0.2 * pl.col(int_col).fill_null(0) * 3
+                    ).alias(
+                        "performance_trend"
+                    )  # Scale interceptions
+                )
+            else:
+                df = df.with_columns(pl.lit(None).alias("performance_trend"))
+
+            # usage_trend: total tackles trend
+            if tack_col in df.columns:
+                df = df.with_columns(pl.col(tack_col).alias("usage_trend"))
+            else:
+                df = df.with_columns(pl.lit(None).alias("usage_trend"))
+
+            df = df.with_columns(pl.lit(None).alias("target_share_trend"))
+
+        else:
+            # Default: set all trends to None
+            df = df.with_columns(
+                [
+                    pl.lit(None).alias("performance_trend"),
+                    pl.lit(None).alias("usage_trend"),
+                    pl.lit(None).alias("target_share_trend"),
+                ]
+            )
+
+        return df
+
+    def _store_rolling_features(self, df: pl.DataFrame) -> int:
+        """
+        Store rolling features in player_rolling_features table.
+
+        Args:
+            df: DataFrame with rolling features in JSON format
+
+        Returns:
+            Number of records stored
+        """
+        if df.is_empty():
+            return 0
+
+        conn = self.db.connect()
+
+        # Insert data using batch processing
+        try:
+            # Register the DataFrame with DuckDB
+            conn.register("temp_rolling_features", df)
+
+            # Insert into table
+            conn.execute(
+                """
+                INSERT INTO player_rolling_features
+                (player_id, season, week, position,
+                 stats_last3_games, stats_last5_games, stats_season_avg,
+                 performance_trend, usage_trend, target_share_trend)
+                SELECT
+                    player_id, season, week, position,
+                    stats_last3_games,
+                    stats_last5_games,
+                    stats_last10_games as stats_season_avg,
+                    performance_trend,
+                    usage_trend,
+                    target_share_trend
+                FROM temp_rolling_features
+            """
+            )
+
+            conn.unregister("temp_rolling_features")
+
+            return len(df)
+        except Exception as e:
+            logger.error(f"      ❌ Failed to store rolling features: {e}")
+            raise
+
+    def _log_rolling_stats_summary(self):
+        """Log summary statistics of rolling features."""
+        try:
+            conn = self.db.connect()
+
+            summary = conn.execute(
+                """
+                SELECT
+                    COUNT(*) as total_records,
+                    COUNT(DISTINCT player_id) as unique_players,
+                    COUNT(DISTINCT position) as positions,
+                    MIN(season) as earliest_season,
+                    MAX(season) as latest_season,
+                    COUNT(*) FILTER (WHERE stats_last3_games IS NOT NULL) as with_3game_stats,
+                    COUNT(*) FILTER (WHERE stats_last5_games IS NOT NULL) as with_5game_stats,
+                    COUNT(*) FILTER (WHERE stats_season_avg IS NOT NULL) as with_10game_stats
+                FROM player_rolling_features
+            """
+            ).fetchone()
+
+            if summary:
+                logger.info(f"  📊 Rolling Features Summary:")
+                logger.info(f"     Total records: {summary[0]:,}")
+                logger.info(f"     Unique players: {summary[1]:,}")
+                logger.info(f"     Positions: {summary[2]}")
+                logger.info(f"     Season range: {summary[3]}-{summary[4]}")
+                logger.info(f"     With 3-game stats: {summary[5]:,}")
+                logger.info(f"     With 5-game stats: {summary[6]:,}")
+                logger.info(f"     With 10-game stats: {summary[7]:,}")
+        except Exception as e:
+            logger.warning(f"  ⚠️  Could not generate summary: {e}")
 
     def build_matchup_features(self):
         """Build matchup-specific features"""
@@ -960,5 +1620,3 @@ class NFLDataPipeline:
         """Validate no future data leakage"""
         logger.info("⏰ Validating temporal consistency...")
         # TODO: Implement from DATA_SETUP.md
-
-
