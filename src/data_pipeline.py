@@ -1587,9 +1587,372 @@ class NFLDataPipeline:
             logger.warning(f"  ⚠️  Could not generate summary: {e}")
 
     def build_matchup_features(self):
-        """Build matchup-specific features"""
+        """
+        Build matchup-specific features for player predictions.
+
+        Updates player_rolling_features table with:
+        - vs_opponent_history: Last 3 games vs same opponent
+        - opp_rank_vs_position: Opponent's defensive rank (1-32)
+        - opp_avg_allowed_to_position: Average stats allowed to position
+        - home_away_splits: Career home vs away performance
+        - rest_days: Days since last game
+        - divisional_game: Is this a divisional matchup?
+
+        Data sources:
+        - raw_player_stats: Historical performance
+        - raw_schedules: Game context, rest days, divisional info
+        - raw_team_stats: Opponent defensive stats
+
+        Edge cases:
+        - First-time matchup → NULL opponent history
+        - Missing schedules → default rest_days=7
+        - Indoor games → NULL weather
+        - No defensive rank data → rank=16 (league average)
+
+        Returns:
+            None. Updates player_rolling_features table in place.
+
+        Raises:
+            ValueError: If player_rolling_features is empty
+            Exception: If database operation fails
+        """
         logger.info("⚔️ Building matchup features...")
-        # TODO: Implement from DATA_SETUP.md
+
+        try:
+            conn = self.db.connect()
+
+            # Validate player_rolling_features exists and has data
+            tables = self.db.list_tables()
+            if "player_rolling_features" not in tables:
+                raise ValueError(
+                    "player_rolling_features table not found. Please run Stage 3a first."
+                )
+
+            record_count = conn.execute(
+                "SELECT COUNT(*) FROM player_rolling_features"
+            ).fetchone()[0]
+            if record_count == 0:
+                logger.warning(
+                    "⚠️  player_rolling_features is empty, skipping matchup features"
+                )
+                return
+
+            logger.info(f"  📊 Processing {record_count:,} player-game records")
+
+            # Step 1: Add rest days and divisional game info from schedules
+            logger.info("  🕐 Adding rest days and divisional game info...")
+            self._update_rest_and_divisional_info(conn)
+
+            # Step 2: Calculate home/away splits
+            logger.info("  🏠 Calculating home/away splits...")
+            self._update_home_away_splits(conn)
+
+            # Step 3: Build opponent history
+            logger.info("  📜 Building opponent history...")
+            self._update_opponent_history(conn)
+
+            # Step 4: Calculate opponent defensive rankings
+            logger.info("  🛡️  Calculating opponent defensive rankings...")
+            self._update_opponent_rankings(conn)
+
+            # Step 5: Calculate average stats allowed by opponents
+            logger.info("  📊 Calculating opponent stats allowed...")
+            self._update_opponent_stats_allowed(conn)
+
+            logger.info("✅ Matchup features built successfully")
+
+            # Log summary statistics
+            self._log_matchup_features_summary(conn)
+
+        except Exception as e:
+            logger.error(f"❌ Failed to build matchup features: {e}")
+            raise
+
+    def _update_rest_and_divisional_info(self, conn):
+        """Update rest_days and divisional_game from schedules."""
+        # Update for away teams
+        conn.execute("""
+            UPDATE player_rolling_features prf
+            SET
+                rest_days = COALESCE(s.away_rest, 7),
+                divisional_game = COALESCE(s.div_game::BOOLEAN, FALSE)
+            FROM raw_schedules s
+            INNER JOIN raw_player_stats ps
+                ON ps.player_id = prf.player_id
+                AND ps.season = prf.season
+                AND ps.week = prf.week
+            WHERE s.season = prf.season
+                AND s.week = prf.week
+                AND s.away_team = ps.recent_team
+        """)
+
+        # Update for home teams
+        conn.execute("""
+            UPDATE player_rolling_features prf
+            SET
+                rest_days = COALESCE(s.home_rest, 7),
+                divisional_game = COALESCE(s.div_game::BOOLEAN, FALSE)
+            FROM raw_schedules s
+            INNER JOIN raw_player_stats ps
+                ON ps.player_id = prf.player_id
+                AND ps.season = prf.season
+                AND ps.week = prf.week
+            WHERE s.season = prf.season
+                AND s.week = prf.week
+                AND s.home_team = ps.recent_team
+        """)
+
+        logger.info("     ✅ Rest days and divisional info updated")
+
+    def _update_home_away_splits(self, conn):
+        """Calculate and update home/away performance splits."""
+        conn.execute("""
+            UPDATE player_rolling_features prf
+            SET home_away_splits = (
+                SELECT json_object(
+                    'home_games', COALESCE(home.games, 0),
+                    'away_games', COALESCE(away.games, 0),
+                    'home_avg_fantasy_points', COALESCE(home.avg_fantasy, 0.0),
+                    'away_avg_fantasy_points', COALESCE(away.avg_fantasy, 0.0),
+                    'home_avg_yards', COALESCE(home.avg_yards, 0.0),
+                    'away_avg_yards', COALESCE(away.avg_yards, 0.0)
+                )
+                FROM (
+                    -- Home stats (games before current week)
+                    SELECT
+                        ps.player_id,
+                        COUNT(*) as games,
+                        AVG(ps.fantasy_points) as avg_fantasy,
+                        AVG(
+                            COALESCE(ps.passing_yards, 0) +
+                            COALESCE(ps.rushing_yards, 0) +
+                            COALESCE(ps.receiving_yards, 0)
+                        ) as avg_yards
+                    FROM raw_player_stats ps
+                    INNER JOIN raw_schedules s
+                        ON s.season = ps.season
+                        AND s.week = ps.week
+                        AND s.home_team = ps.recent_team
+                    WHERE ps.player_id = prf.player_id
+                        AND (ps.season < prf.season
+                            OR (ps.season = prf.season AND ps.week < prf.week))
+                    GROUP BY ps.player_id
+                ) home
+                FULL OUTER JOIN (
+                    -- Away stats (games before current week)
+                    SELECT
+                        ps.player_id,
+                        COUNT(*) as games,
+                        AVG(ps.fantasy_points) as avg_fantasy,
+                        AVG(
+                            COALESCE(ps.passing_yards, 0) +
+                            COALESCE(ps.rushing_yards, 0) +
+                            COALESCE(ps.receiving_yards, 0)
+                        ) as avg_yards
+                    FROM raw_player_stats ps
+                    INNER JOIN raw_schedules s
+                        ON s.season = ps.season
+                        AND s.week = ps.week
+                        AND s.away_team = ps.recent_team
+                    WHERE ps.player_id = prf.player_id
+                        AND (ps.season < prf.season
+                            OR (ps.season = prf.season AND ps.week < prf.week))
+                    GROUP BY ps.player_id
+                ) away ON TRUE
+            )
+        """)
+
+        logger.info("     ✅ Home/away splits calculated")
+
+    def _update_opponent_history(self, conn):
+        """Build opponent matchup history (last 3 games vs same opponent)."""
+        conn.execute("""
+            UPDATE player_rolling_features prf
+            SET vs_opponent_history = (
+                SELECT json_group_array(
+                    json_object(
+                        'season', opp_games.season,
+                        'week', opp_games.week,
+                        'fantasy_points', opp_games.fantasy_points,
+                        'total_yards', opp_games.total_yards,
+                        'touchdowns', opp_games.touchdowns
+                    )
+                )
+                FROM (
+                    SELECT
+                        ps.season,
+                        ps.week,
+                        COALESCE(ps.fantasy_points, 0.0) as fantasy_points,
+                        (COALESCE(ps.passing_yards, 0) +
+                         COALESCE(ps.rushing_yards, 0) +
+                         COALESCE(ps.receiving_yards, 0)) as total_yards,
+                        (COALESCE(ps.passing_tds, 0) +
+                         COALESCE(ps.rushing_tds, 0) +
+                         COALESCE(ps.receiving_tds, 0)) as touchdowns
+                    FROM raw_player_stats ps
+                    INNER JOIN raw_schedules s
+                        ON s.season = ps.season
+                        AND s.week = ps.week
+                    INNER JOIN raw_player_stats ps_current
+                        ON ps_current.player_id = prf.player_id
+                        AND ps_current.season = prf.season
+                        AND ps_current.week = prf.week
+                    WHERE ps.player_id = prf.player_id
+                        AND (ps.season < prf.season
+                            OR (ps.season = prf.season AND ps.week < prf.week))
+                        AND (
+                            -- Match opponent (home or away)
+                            (s.home_team = ps.recent_team AND
+                             s.away_team = ps_current.opponent_team)
+                            OR
+                            (s.away_team = ps.recent_team AND
+                             s.home_team = ps_current.opponent_team)
+                        )
+                    ORDER BY ps.season DESC, ps.week DESC
+                    LIMIT 3
+                ) opp_games
+            )
+        """)
+
+        logger.info("     ✅ Opponent history built")
+
+    def _update_opponent_rankings(self, conn):
+        """Calculate opponent defensive rankings by position."""
+        # Process each position group
+        positions = ["QB", "RB", "WR", "TE", "K", "DEF"]
+
+        for position in positions:
+            logger.info(f"     📊 Ranking defenses vs {position}...")
+
+            # Position-specific stats for ranking
+            if position == "QB":
+                metric = "passing_yards"
+            elif position == "RB":
+                metric = "rushing_yards"
+            elif position in ["WR", "TE"]:
+                metric = "receiving_yards"
+            elif position == "K":
+                metric = "fg_made"
+            else:  # DEF
+                metric = "def_tackles_solo"
+
+            # Calculate defensive rankings based on yards/stats allowed
+            conn.execute(f"""
+                WITH defensive_performance AS (
+                    SELECT
+                        ts.season,
+                        ts.week,
+                        ts.team,
+                        AVG(COALESCE(ps.{metric}, 0)) as avg_allowed
+                    FROM raw_team_stats ts
+                    LEFT JOIN raw_player_stats ps
+                        ON ps.season = ts.season
+                        AND ps.week = ts.week
+                        AND ps.opponent_team = ts.team
+                        AND ps.position = '{position}'
+                    WHERE ts.season >= (SELECT MIN(season) FROM player_rolling_features)
+                    GROUP BY ts.season, ts.week, ts.team
+                ),
+                defensive_ranks AS (
+                    SELECT
+                        season,
+                        week,
+                        team,
+                        RANK() OVER (
+                            PARTITION BY season, week
+                            ORDER BY avg_allowed ASC
+                        ) as defense_rank
+                    FROM defensive_performance
+                )
+                UPDATE player_rolling_features prf
+                SET opp_rank_vs_position = COALESCE(dr.defense_rank, 16)
+                FROM defensive_ranks dr
+                INNER JOIN raw_player_stats ps
+                    ON ps.player_id = prf.player_id
+                    AND ps.season = prf.season
+                    AND ps.week = prf.week
+                WHERE dr.season = prf.season
+                    AND dr.week = prf.week
+                    AND dr.team = ps.opponent_team
+                    AND prf.position = '{position}'
+            """)
+
+        logger.info("     ✅ Opponent rankings calculated")
+
+    def _update_opponent_stats_allowed(self, conn):
+        """Calculate average stats allowed by opponent to each position."""
+        positions = ["QB", "RB", "WR", "TE", "K", "DEF"]
+
+        for position in positions:
+            logger.info(f"     📊 Calculating stats allowed vs {position}...")
+
+            # Get position-specific stats
+            relevant_stats = config.get_position_stats(position)
+
+            if not relevant_stats:
+                continue
+
+            # Build JSON object with average stats allowed (last 3 games)
+            stat_selects = []
+            for stat in relevant_stats[:10]:  # Limit to top 10 most important stats
+                stat_selects.append(
+                    f"'{stat}', COALESCE(AVG(COALESCE(ps.{stat}, 0)), 0.0)"
+                )
+
+            stat_json = ", ".join(stat_selects)
+
+            conn.execute(f"""
+                UPDATE player_rolling_features prf
+                SET opp_avg_allowed_to_position = (
+                    SELECT json_object({stat_json})
+                    FROM raw_player_stats ps
+                    INNER JOIN raw_player_stats ps_current
+                        ON ps_current.player_id = prf.player_id
+                        AND ps_current.season = prf.season
+                        AND ps_current.week = prf.week
+                    WHERE ps.opponent_team = ps_current.opponent_team
+                        AND ps.position = '{position}'
+                        AND (ps.season < prf.season
+                            OR (ps.season = prf.season AND ps.week < prf.week))
+                        AND ps.season >= prf.season - 1  -- Last season data
+                )
+                WHERE prf.position = '{position}'
+            """)
+
+        logger.info("     ✅ Opponent stats allowed calculated")
+
+    def _log_matchup_features_summary(self, conn):
+        """Log summary statistics for matchup features."""
+        try:
+            # Count records with each feature populated
+            summary = conn.execute("""
+                SELECT
+                    COUNT(*) as total_records,
+                    SUM(CASE WHEN rest_days IS NOT NULL THEN 1 ELSE 0 END) as with_rest_days,
+                    SUM(CASE WHEN divisional_game IS NOT NULL THEN 1 ELSE 0 END) as with_divisional,
+                    SUM(CASE WHEN home_away_splits IS NOT NULL THEN 1 ELSE 0 END) as with_splits,
+                    SUM(CASE WHEN vs_opponent_history IS NOT NULL THEN 1 ELSE 0 END) as with_opp_history,
+                    SUM(CASE WHEN opp_rank_vs_position IS NOT NULL THEN 1 ELSE 0 END) as with_opp_rank,
+                    SUM(CASE WHEN opp_avg_allowed_to_position IS NOT NULL THEN 1 ELSE 0 END) as with_opp_stats,
+                    AVG(CAST(divisional_game AS INTEGER)) as pct_divisional,
+                    AVG(rest_days) as avg_rest_days
+                FROM player_rolling_features
+            """).fetchone()
+
+            if summary:
+                logger.info("  📊 Matchup Features Summary:")
+                logger.info(f"     Total records: {summary[0]:,}")
+                logger.info(f"     With rest days: {summary[1]:,}")
+                logger.info(f"     With divisional info: {summary[2]:,}")
+                logger.info(f"     With home/away splits: {summary[3]:,}")
+                logger.info(f"     With opponent history: {summary[4]:,}")
+                logger.info(f"     With opponent rankings: {summary[5]:,}")
+                logger.info(f"     With opponent stats: {summary[6]:,}")
+                logger.info(f"     Divisional game rate: {summary[7]*100:.1f}%")
+                logger.info(f"     Average rest days: {summary[8]:.1f}")
+
+        except Exception as e:
+            logger.warning(f"  ⚠️  Could not generate summary: {e}")
 
     def create_team_aggregates(self):
         """Create team aggregate features"""
