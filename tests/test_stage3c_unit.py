@@ -104,7 +104,7 @@ def sample_pbp_data(test_db):
     for play in plays:
         conn.execute("""
             INSERT INTO raw_pbp
-            (game_id, play_id, season, week, posteam, posteam, defteam,
+            (game_id, play_id, season, week, posteam, posteam_type, defteam,
              play_type, yards_gained, epa, success, first_down, touchdown)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, play)

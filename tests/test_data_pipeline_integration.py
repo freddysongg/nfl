@@ -26,12 +26,6 @@ from src.table_schemas import (
     create_raw_team_stats_table,
     create_raw_schedules_table,
     create_raw_rosters_weekly_table,
-    create_player_lifecycle_table,
-    create_team_roster_snapshots_table,
-    create_player_experience_classification_table,
-    create_player_rolling_features_table,
-    create_team_rolling_features_table,
-    create_ml_training_features_table,
 )
 
 
@@ -53,16 +47,127 @@ def integration_test_db(tmp_path):
     create_raw_rosters_weekly_table(conn)
 
     # Create Stage 2 tables
-    create_player_lifecycle_table(conn)
-    create_team_roster_snapshots_table(conn)
-    create_player_experience_classification_table(conn)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS player_lifecycle (
+            player_id VARCHAR PRIMARY KEY,
+            player_name VARCHAR,
+            position VARCHAR,
+            first_nfl_season INTEGER,
+            last_nfl_season INTEGER,
+            total_seasons_played INTEGER,
+            total_games_played INTEGER,
+            is_retired BOOLEAN,
+            career_teams VARCHAR,
+            primary_position VARCHAR,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS team_roster_snapshots (
+            snapshot_id VARCHAR PRIMARY KEY,
+            team VARCHAR,
+            season INTEGER,
+            week INTEGER,
+            active_players JSON,
+            total_roster_size INTEGER,
+            snapshot_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS player_experience_classification (
+            player_id VARCHAR,
+            season INTEGER,
+            seasons_experience INTEGER,
+            experience_level VARCHAR,
+            confidence_score FLOAT,
+            classification_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (player_id, season)
+        )
+    """)
 
     # Create Stage 3 tables
-    create_player_rolling_features_table(conn)
-    create_team_rolling_features_table(conn)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS player_rolling_features (
+            feature_id VARCHAR PRIMARY KEY,
+            player_id VARCHAR,
+            player_name VARCHAR,
+            season INTEGER,
+            week INTEGER,
+            position VARCHAR,
+            team VARCHAR,
+            opponent VARCHAR,
+            stats_last3_games JSON,
+            stats_last5_games JSON,
+            stats_last10_games JSON,
+            performance_trend FLOAT,
+            usage_trend FLOAT,
+            efficiency_trend FLOAT,
+            vs_opponent_history JSON,
+            home_away_splits JSON,
+            divisional_game BOOLEAN,
+            rest_days INTEGER,
+            rolling_stats_json JSON,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS team_rolling_features (
+            feature_id VARCHAR PRIMARY KEY,
+            team VARCHAR,
+            season INTEGER,
+            week INTEGER,
+            offensive_stats JSON,
+            offensive_epa JSON,
+            offensive_success_rate JSON,
+            defensive_stats JSON,
+            defensive_epa JSON,
+            defensive_success_rate JSON,
+            red_zone_efficiency JSON,
+            third_down_efficiency JSON,
+            explosive_play_rate JSON,
+            offensive_trend FLOAT,
+            defensive_trend FLOAT,
+            data_source VARCHAR,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
 
     # Create Stage 4 table
-    create_ml_training_features_table(conn)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS ml_training_features (
+            feature_id VARCHAR PRIMARY KEY,
+            entity_id VARCHAR,
+            player_id VARCHAR,
+            player_name VARCHAR,
+            position VARCHAR,
+            season INTEGER,
+            week INTEGER,
+            team VARCHAR,
+            opponent VARCHAR,
+            game_date VARCHAR,
+            numerical_features FLOAT[],
+            feature_names JSON,
+            categorical_features JSON,
+            experience_level VARCHAR,
+            confidence_score FLOAT,
+            player_experience_level VARCHAR,
+            data_quality_score FLOAT,
+            completeness_score FLOAT,
+            has_outliers BOOLEAN,
+            recency_score FLOAT,
+            target_passing_yards FLOAT,
+            target_rushing_yards FLOAT,
+            target_receiving_yards FLOAT,
+            target_fantasy_points FLOAT,
+            target_touchdowns INTEGER,
+            actual_outcomes JSON,
+            is_valid_temporal BOOLEAN,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
 
     # Insert comprehensive sample player stats
     _insert_sample_player_stats(conn)

@@ -19,7 +19,6 @@ import json
 from src.models.xgboost_predictor import XGBoostPredictor
 from src.models.model_registry import ModelRegistry
 from src.training.trainer import NFLTrainer
-from src.table_schemas import create_ml_training_features_table
 
 
 @pytest.fixture
@@ -36,7 +35,38 @@ def ml_integration_db(tmp_path):
     conn = duckdb.connect(str(db_path))
 
     # Create ml_training_features table
-    create_ml_training_features_table(conn)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS ml_training_features (
+            feature_id VARCHAR PRIMARY KEY,
+            entity_id VARCHAR,
+            player_id VARCHAR,
+            player_name VARCHAR,
+            position VARCHAR,
+            season INTEGER,
+            week INTEGER,
+            team VARCHAR,
+            opponent VARCHAR,
+            game_date VARCHAR,
+            numerical_features FLOAT[],
+            feature_names JSON,
+            categorical_features JSON,
+            experience_level VARCHAR,
+            confidence_score FLOAT,
+            player_experience_level VARCHAR,
+            data_quality_score FLOAT,
+            completeness_score FLOAT,
+            has_outliers BOOLEAN,
+            recency_score FLOAT,
+            target_passing_yards FLOAT,
+            target_rushing_yards FLOAT,
+            target_receiving_yards FLOAT,
+            target_fantasy_points FLOAT,
+            target_touchdowns INTEGER,
+            actual_outcomes JSON,
+            is_valid_temporal BOOLEAN,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
 
     # Insert realistic synthetic data
     _insert_ml_training_data(conn)

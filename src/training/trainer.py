@@ -228,7 +228,7 @@ class NFLTrainer:
             # Extract position from categorical_features for convenience
             df = df.with_columns(
                 pl.col("categorical_features")
-                .str.json_extract()
+                .str.json_decode()
                 .struct.field("position")
                 .struct.field("value")
                 .alias("position")
