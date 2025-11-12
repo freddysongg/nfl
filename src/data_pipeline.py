@@ -228,6 +228,11 @@ class NFLDataPipeline:
 
                 if not players.is_empty():
                     self._ensure_players_table_exists()
+                    # Add player_id column from gsis_id to match our schema
+                    if "gsis_id" in players.columns and "player_id" not in players.columns:
+                        players = players.with_columns(
+                            pl.col("gsis_id").alias("player_id")
+                        )
                     result = self.batch_processor.process_dataframe_to_table(
                         players, "raw_players", f"Player Metadata"
                     )
