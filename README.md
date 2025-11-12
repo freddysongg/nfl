@@ -415,9 +415,20 @@ uv sync --all-extras
 ## Documentation
 
 - **CLAUDE.md**: Detailed project guide for AI assistants
+- **TROUBLESHOOTING.md**: Common issues and solutions
 - **tests/README.md**: Testing documentation and guide
 - **tests/README_ML_UNIT_TESTS.md**: ML unit testing details
 - **tests/README_INTEGRATION_TESTS.md**: Integration testing guide
+
+## Known Issues
+
+### Data Pipeline Download Restrictions
+
+The data pipeline may fail with **403 Forbidden errors** in restricted environments (sandboxed containers, restrictive firewalls, some cloud instances) due to GitHub release assets being hosted on Azure Blob Storage.
+
+**Quick Fix**: Run the data pipeline from a non-restricted environment (local machine, different network).
+
+See **[TROUBLESHOOTING.md](TROUBLESHOOTING.md)** for detailed solutions and workarounds.
 
 ## Contributing
 

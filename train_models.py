@@ -137,12 +137,43 @@ Examples:
     if args.all_positions and args.position:
         parser.error("Cannot specify both --all-positions and --position")
 
-    # Check if database exists
+    # Check if database exists and has data
     db_path = Path(args.db_path)
     if not db_path.exists():
         print(f"Error: Database not found at {args.db_path}")
-        print("Run the data pipeline first to create the database.")
+        print("\nTo create the database:")
+        print("  1. Run: uv run python setup_database.py")
+        print("  2. Run: uv run python run_pipeline.py")
+        print("\nNote: Data download may fail in restricted environments due to")
+        print("      GitHub release assets being hosted on Azure Blob Storage.")
+        print("      If you encounter 403 Forbidden errors, try running outside")
+        print("      the sandboxed environment or contact support.")
         sys.exit(1)
+
+    # Check if database has data
+    try:
+        from src.database import NFLDatabase
+        with NFLDatabase(str(db_path)) as db:
+            result = db.execute("SELECT COUNT(*) as count FROM ml_training_features")
+            row_count = result.fetchone()[0] if result else 0
+            if row_count == 0:
+                print(f"Error: Database exists but contains no training data")
+                print(f"Database: {args.db_path}")
+                print("\nTo load data:")
+                print("  Run: uv run python run_pipeline.py")
+                print("\nKnown Issue:")
+                print("  The data pipeline downloads data from GitHub release assets,")
+                print("  which are hosted on Azure Blob Storage. Some environments")
+                print("  (sandboxed/restricted networks) may block access, resulting")
+                print("  in '403 Forbidden' errors.")
+                print("\nWorkarounds:")
+                print("  1. Run the pipeline from a non-restricted environment")
+                print("  2. Download data manually and import it")
+                print("  3. Use a VPN or different network if corporate firewall is blocking")
+                sys.exit(1)
+    except Exception as e:
+        print(f"Warning: Could not verify database contents: {e}")
+        print("Proceeding anyway...")
 
     # Initialize trainer
     print("=" * 70)
