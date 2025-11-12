@@ -69,9 +69,27 @@ class NFLDatabase:
                 raise ValueError(f"Table {table_name} already contains data")
 
         pandas_df = df.to_pandas()
-
         conn.register("temp_df", pandas_df)
-        conn.execute(f"INSERT INTO {table_name} SELECT * FROM temp_df")
+
+        # Get table schema to know which columns exist
+        try:
+            table_columns_result = conn.execute(f"DESCRIBE {table_name}").fetchall()
+            table_columns = [col[0] for col in table_columns_result]
+        except Exception:
+            # If table doesn't exist or can't be described, fallback to SELECT *
+            conn.execute(f"INSERT INTO {table_name} SELECT * FROM temp_df")
+            return len(df)
+
+        # Find common columns between dataframe and table
+        df_columns = df.columns
+        common_columns = [col for col in df_columns if col in table_columns]
+
+        if not common_columns:
+            raise ValueError(f"No common columns found between dataframe and table {table_name}")
+
+        # Build INSERT statement with explicit column names (order-independent)
+        cols_str = ", ".join(common_columns)
+        conn.execute(f"INSERT INTO {table_name} ({cols_str}) SELECT {cols_str} FROM temp_df")
 
         return len(df)
 
