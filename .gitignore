@@ -242,3 +242,18 @@ temp/
 .env.production.local
 secrets.json
 config.json
+
+# DuckDB database files
+*.duckdb
+*.duckdb.wal
+test_*.duckdb
+
+# MLflow tracking
+mlruns/
+mlruns.db
+
+# Trained models
+models/
+test_models/
+test_verify_models/
+test_verify_trainer_models/

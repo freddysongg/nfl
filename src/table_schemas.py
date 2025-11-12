@@ -1032,6 +1032,220 @@ def create_raw_combine_table(conn: duckdb.DuckDBPyConnection):
     """)
 
 
+def create_model_versions_table(conn: duckdb.DuckDBPyConnection):
+    """Create model_versions table for model registry"""
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS model_versions (
+            -- Model identification
+            model_id VARCHAR PRIMARY KEY,
+            model_name VARCHAR NOT NULL,
+            version VARCHAR NOT NULL,
+            model_type VARCHAR NOT NULL,  -- 'regression', 'classification', 'multioutput'
+            target_variable VARCHAR NOT NULL,
+
+            -- Model storage
+            model_path VARCHAR NOT NULL,
+
+            -- Features and hyperparameters
+            features JSON,
+            hyperparameters JSON,
+
+            -- Performance metrics
+            metrics JSON,
+            primary_metric FLOAT,
+
+            -- Training information
+            training_samples INTEGER,
+            training_duration_seconds FLOAT,
+            training_date TIMESTAMP,
+
+            -- Status and metadata
+            status VARCHAR DEFAULT 'active',  -- 'training', 'active', 'production', 'deprecated'
+            description TEXT,
+            tags JSON,
+            metadata_json JSON,
+
+            -- MLflow integration
+            mlflow_run_id VARCHAR,
+            mlflow_experiment_id VARCHAR,
+
+            -- Timestamps
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+            -- Constraints
+            UNIQUE(model_name, version)
+        )
+    """)
+
+
+def create_model_experiments_table(conn: duckdb.DuckDBPyConnection):
+    """Create model_experiments table for hyperparameter tuning tracking"""
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS model_experiments (
+            -- Experiment identification
+            experiment_id VARCHAR PRIMARY KEY,
+            experiment_name VARCHAR NOT NULL,
+            model_type VARCHAR NOT NULL,
+            target_variable VARCHAR NOT NULL,
+
+            -- Experiment configuration
+            search_strategy VARCHAR,  -- 'grid', 'random', 'bayesian'
+            param_space JSON,
+            n_trials INTEGER,
+
+            -- Best results
+            best_trial_id VARCHAR,
+            best_params JSON,
+            best_score FLOAT,
+            best_model_id VARCHAR,
+
+            -- Experiment results
+            all_trials JSON,
+            search_history JSON,
+
+            -- Metadata
+            status VARCHAR DEFAULT 'running',  -- 'running', 'completed', 'failed'
+            duration_seconds FLOAT,
+            notes TEXT,
+
+            -- Timestamps
+            started_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            completed_at TIMESTAMP,
+
+            -- Foreign keys
+            FOREIGN KEY (best_model_id) REFERENCES model_versions(model_id)
+        )
+    """)
+
+
+def create_model_predictions_table(conn: duckdb.DuckDBPyConnection):
+    """Create model_predictions table for storing model predictions"""
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS model_predictions (
+            -- Prediction identification
+            prediction_id VARCHAR PRIMARY KEY,
+            model_id VARCHAR NOT NULL,
+
+            -- Prediction target
+            target_type VARCHAR NOT NULL,  -- 'player_stats', 'team_points', 'win_probability'
+            target_id VARCHAR,  -- player_id, team, game_id
+
+            -- Game context
+            season INTEGER NOT NULL,
+            week INTEGER NOT NULL,
+            game_id VARCHAR,
+
+            -- Prediction details
+            prediction_value FLOAT,
+            prediction_proba JSON,  -- For classification models
+            confidence_score FLOAT,
+
+            -- Actual outcome (for evaluation)
+            actual_value FLOAT,
+            prediction_error FLOAT,
+
+            -- Features used
+            features_json JSON,
+
+            -- Metadata
+            prediction_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            notes TEXT,
+
+            -- Foreign keys
+            FOREIGN KEY (model_id) REFERENCES model_versions(model_id)
+        )
+    """)
+
+
+def create_model_performance_history_table(conn: duckdb.DuckDBPyConnection):
+    """Create model_performance_history table for tracking model performance over time"""
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS model_performance_history (
+            -- History identification
+            history_id VARCHAR PRIMARY KEY,
+            model_id VARCHAR NOT NULL,
+
+            -- Evaluation period
+            evaluation_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            season INTEGER,
+            week_start INTEGER,
+            week_end INTEGER,
+
+            -- Performance metrics
+            metric_name VARCHAR NOT NULL,
+            metric_value FLOAT NOT NULL,
+
+            -- Evaluation context
+            n_predictions INTEGER,
+            data_slice VARCHAR,  -- 'all', 'rookies', 'veterans', 'QB', 'RB', etc.
+
+            -- Comparison
+            baseline_metric_value FLOAT,
+            improvement_pct FLOAT,
+
+            -- Metadata
+            notes TEXT,
+
+            -- Foreign keys
+            FOREIGN KEY (model_id) REFERENCES model_versions(model_id)
+        )
+    """)
+
+
+def create_all_model_tables(conn: duckdb.DuckDBPyConnection):
+    """Create all ML model tracking tables"""
+
+    print("🤖 Creating ML model tables...")
+
+    create_model_versions_table(conn)
+    print("✅ model_versions table created")
+
+    create_model_experiments_table(conn)
+    print("✅ model_experiments table created")
+
+    create_model_predictions_table(conn)
+    print("✅ model_predictions table created")
+
+    create_model_performance_history_table(conn)
+    print("✅ model_performance_history table created")
+
+
+def create_indexes_for_model_tables(conn: duckdb.DuckDBPyConnection):
+    """Create performance indexes for model tracking tables"""
+
+    indexes = [
+        # model_versions indexes
+        "CREATE INDEX IF NOT EXISTS idx_model_versions_name ON model_versions(model_name)",
+        "CREATE INDEX IF NOT EXISTS idx_model_versions_name_version ON model_versions(model_name, version)",
+        "CREATE INDEX IF NOT EXISTS idx_model_versions_type ON model_versions(model_type)",
+        "CREATE INDEX IF NOT EXISTS idx_model_versions_status ON model_versions(status)",
+        "CREATE INDEX IF NOT EXISTS idx_model_versions_created ON model_versions(created_at)",
+
+        # model_experiments indexes
+        "CREATE INDEX IF NOT EXISTS idx_model_experiments_name ON model_experiments(experiment_name)",
+        "CREATE INDEX IF NOT EXISTS idx_model_experiments_status ON model_experiments(status)",
+        "CREATE INDEX IF NOT EXISTS idx_model_experiments_model_type ON model_experiments(model_type)",
+
+        # model_predictions indexes
+        "CREATE INDEX IF NOT EXISTS idx_model_predictions_model ON model_predictions(model_id)",
+        "CREATE INDEX IF NOT EXISTS idx_model_predictions_season_week ON model_predictions(season, week)",
+        "CREATE INDEX IF NOT EXISTS idx_model_predictions_target ON model_predictions(target_type, target_id)",
+        "CREATE INDEX IF NOT EXISTS idx_model_predictions_date ON model_predictions(prediction_date)",
+
+        # model_performance_history indexes
+        "CREATE INDEX IF NOT EXISTS idx_model_performance_model ON model_performance_history(model_id)",
+        "CREATE INDEX IF NOT EXISTS idx_model_performance_date ON model_performance_history(evaluation_date)",
+        "CREATE INDEX IF NOT EXISTS idx_model_performance_metric ON model_performance_history(metric_name)",
+        "CREATE INDEX IF NOT EXISTS idx_model_performance_season_week ON model_performance_history(season, week_start, week_end)"
+    ]
+
+    for idx_sql in indexes:
+        conn.execute(idx_sql)
+
+    print(f"✅ Created {len(indexes)} model table indexes")
+
+
 def create_all_raw_tables(conn: duckdb.DuckDBPyConnection):
     """Create all raw data tables using updated 2025 schemas"""
 
@@ -1138,11 +1352,19 @@ if __name__ == "__main__":
     try:
         create_all_raw_tables(conn)
         create_indexes_for_raw_tables(conn)
-        print("✅ All schemas created successfully!")
+        print("✅ All raw data schemas created successfully!")
+
+        create_all_model_tables(conn)
+        create_indexes_for_model_tables(conn)
+        print("✅ All ML model schemas created successfully!")
 
         # Show table count
         tables = conn.execute("SHOW TABLES").fetchall()
         print(f"📊 Created {len(tables)} tables total")
+
+        # Show model tables specifically
+        model_tables = [t for t in tables if t[0].startswith('model_')]
+        print(f"🤖 Model tracking tables: {len(model_tables)}")
 
     finally:
         conn.close()
