@@ -1679,12 +1679,12 @@ class NFLDataPipeline:
                 divisional_game = COALESCE(s.div_game::BOOLEAN, FALSE)
             FROM raw_schedules s
             INNER JOIN raw_player_stats ps
-                ON ps.player_id = prf.player_id
-                AND ps.season = prf.season
-                AND ps.week = prf.week
-            WHERE s.season = prf.season
-                AND s.week = prf.week
-                AND s.away_team = ps.recent_team
+                ON ps.season = s.season
+                AND ps.week = s.week
+                AND ps.recent_team = s.away_team
+            WHERE prf.player_id = ps.player_id
+                AND prf.season = ps.season
+                AND prf.week = ps.week
         """
         )
 
@@ -1697,12 +1697,12 @@ class NFLDataPipeline:
                 divisional_game = COALESCE(s.div_game::BOOLEAN, FALSE)
             FROM raw_schedules s
             INNER JOIN raw_player_stats ps
-                ON ps.player_id = prf.player_id
-                AND ps.season = prf.season
-                AND ps.week = prf.week
-            WHERE s.season = prf.season
-                AND s.week = prf.week
-                AND s.home_team = ps.recent_team
+                ON ps.season = s.season
+                AND ps.week = s.week
+                AND ps.recent_team = s.home_team
+            WHERE prf.player_id = ps.player_id
+                AND prf.season = ps.season
+                AND prf.week = ps.week
         """
         )
 
@@ -1877,12 +1877,12 @@ class NFLDataPipeline:
                 SET opp_rank_vs_position = COALESCE(dr.defense_rank, 16)
                 FROM defensive_ranks dr
                 INNER JOIN raw_player_stats ps
-                    ON ps.player_id = prf.player_id
-                    AND ps.season = prf.season
-                    AND ps.week = prf.week
-                WHERE dr.season = prf.season
-                    AND dr.week = prf.week
-                    AND dr.team = ps.opponent_team
+                    ON ps.season = dr.season
+                    AND ps.week = dr.week
+                    AND ps.opponent_team = dr.team
+                WHERE prf.player_id = ps.player_id
+                    AND prf.season = ps.season
+                    AND prf.week = ps.week
                     AND prf.position = '{position}'
             """
             )
