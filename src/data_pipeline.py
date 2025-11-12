@@ -1715,22 +1715,31 @@ class NFLDataPipeline:
 
     def _update_home_away_splits(self, conn):
         """Calculate and update home/away performance splits."""
+        # First compute home/away splits in a CTE, then update using UPDATE FROM
         conn.execute(
             """
-            UPDATE player_rolling_features prf
-            SET home_away_splits = (
-                SELECT json_object(
-                    'home_games', COALESCE(home.games, 0),
-                    'away_games', COALESCE(away.games, 0),
-                    'home_avg_fantasy_points', COALESCE(home.avg_fantasy, 0.0),
-                    'away_avg_fantasy_points', COALESCE(away.avg_fantasy, 0.0),
-                    'home_avg_yards', COALESCE(home.avg_yards, 0.0),
-                    'away_avg_yards', COALESCE(away.avg_yards, 0.0)
-                )
-                FROM (
+            UPDATE player_rolling_features
+            SET home_away_splits = splits.home_away_data
+            FROM (
+                SELECT
+                    prf.player_id,
+                    prf.season,
+                    prf.week,
+                    json_object(
+                        'home_games', COALESCE(home.games, 0),
+                        'away_games', COALESCE(away.games, 0),
+                        'home_avg_fantasy_points', COALESCE(home.avg_fantasy, 0.0),
+                        'away_avg_fantasy_points', COALESCE(away.avg_fantasy, 0.0),
+                        'home_avg_yards', COALESCE(home.avg_yards, 0.0),
+                        'away_avg_yards', COALESCE(away.avg_yards, 0.0)
+                    ) as home_away_data
+                FROM player_rolling_features prf
+                LEFT JOIN (
                     -- Home stats (games before current week)
                     SELECT
                         ps.player_id,
+                        prf2.season as target_season,
+                        prf2.week as target_week,
                         COUNT(*) as games,
                         AVG(ps.fantasy_points) as avg_fantasy,
                         AVG(
@@ -1738,20 +1747,26 @@ class NFLDataPipeline:
                             COALESCE(ps.rushing_yards, 0) +
                             COALESCE(ps.receiving_yards, 0)
                         ) as avg_yards
-                    FROM raw_player_stats ps
+                    FROM player_rolling_features prf2
+                    INNER JOIN raw_player_stats ps
+                        ON ps.player_id = prf2.player_id
+                        AND (ps.season < prf2.season
+                            OR (ps.season = prf2.season AND ps.week < prf2.week))
                     INNER JOIN raw_schedules s
                         ON s.season = ps.season
                         AND s.week = ps.week
                         AND s.home_team = ps.team
-                    WHERE ps.player_id = prf.player_id
-                        AND (ps.season < prf.season
-                            OR (ps.season = prf.season AND ps.week < prf.week))
-                    GROUP BY ps.player_id
+                    GROUP BY ps.player_id, prf2.season, prf2.week
                 ) home
-                FULL OUTER JOIN (
+                    ON home.player_id = prf.player_id
+                    AND home.target_season = prf.season
+                    AND home.target_week = prf.week
+                LEFT JOIN (
                     -- Away stats (games before current week)
                     SELECT
                         ps.player_id,
+                        prf2.season as target_season,
+                        prf2.week as target_week,
                         COUNT(*) as games,
                         AVG(ps.fantasy_points) as avg_fantasy,
                         AVG(
@@ -1759,17 +1774,24 @@ class NFLDataPipeline:
                             COALESCE(ps.rushing_yards, 0) +
                             COALESCE(ps.receiving_yards, 0)
                         ) as avg_yards
-                    FROM raw_player_stats ps
+                    FROM player_rolling_features prf2
+                    INNER JOIN raw_player_stats ps
+                        ON ps.player_id = prf2.player_id
+                        AND (ps.season < prf2.season
+                            OR (ps.season = prf2.season AND ps.week < prf2.week))
                     INNER JOIN raw_schedules s
                         ON s.season = ps.season
                         AND s.week = ps.week
                         AND s.away_team = ps.team
-                    WHERE ps.player_id = prf.player_id
-                        AND (ps.season < prf.season
-                            OR (ps.season = prf.season AND ps.week < prf.week))
-                    GROUP BY ps.player_id
-                ) away ON TRUE
-            )
+                    GROUP BY ps.player_id, prf2.season, prf2.week
+                ) away
+                    ON away.player_id = prf.player_id
+                    AND away.target_season = prf.season
+                    AND away.target_week = prf.week
+            ) splits
+            WHERE player_rolling_features.player_id = splits.player_id
+                AND player_rolling_features.season = splits.season
+                AND player_rolling_features.week = splits.week
         """
         )
 
