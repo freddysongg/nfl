@@ -228,6 +228,11 @@ class NFLDataPipeline:
 
                 if not players.is_empty():
                     self._ensure_players_table_exists()
+                    # Add player_id column from gsis_id to match our schema
+                    if "gsis_id" in players.columns and "player_id" not in players.columns:
+                        players = players.with_columns(
+                            pl.col("gsis_id").alias("player_id")
+                        )
                     result = self.batch_processor.process_dataframe_to_table(
                         players, "raw_players", f"Player Metadata"
                     )
@@ -813,8 +818,8 @@ class NFLDataPipeline:
                     rs.week,
                     sd.snapshot_date,
                     rs.active_players,
-                    COALESCE(di.depth_chart, TO_JSON([])) as depth_chart,
-                    COALESCE(rc.key_changes, TO_JSON({})) as key_changes,
+                    COALESCE(di.depth_chart, '[]'::JSON) as depth_chart,
+                    COALESCE(rc.key_changes, '{}'::JSON) as key_changes,
                     CURRENT_TIMESTAMP as created_at
                 FROM roster_snapshots rs
                 LEFT JOIN snapshot_dates sd
@@ -1679,12 +1684,12 @@ class NFLDataPipeline:
                 divisional_game = COALESCE(s.div_game::BOOLEAN, FALSE)
             FROM raw_schedules s
             INNER JOIN raw_player_stats ps
-                ON ps.player_id = prf.player_id
-                AND ps.season = prf.season
-                AND ps.week = prf.week
-            WHERE s.season = prf.season
-                AND s.week = prf.week
-                AND s.away_team = ps.recent_team
+                ON ps.season = s.season
+                AND ps.week = s.week
+                AND ps.team = s.away_team
+            WHERE prf.player_id = ps.player_id
+                AND prf.season = ps.season
+                AND prf.week = ps.week
         """
         )
 
@@ -1697,12 +1702,12 @@ class NFLDataPipeline:
                 divisional_game = COALESCE(s.div_game::BOOLEAN, FALSE)
             FROM raw_schedules s
             INNER JOIN raw_player_stats ps
-                ON ps.player_id = prf.player_id
-                AND ps.season = prf.season
-                AND ps.week = prf.week
-            WHERE s.season = prf.season
-                AND s.week = prf.week
-                AND s.home_team = ps.recent_team
+                ON ps.season = s.season
+                AND ps.week = s.week
+                AND ps.team = s.home_team
+            WHERE prf.player_id = ps.player_id
+                AND prf.season = ps.season
+                AND prf.week = ps.week
         """
         )
 
@@ -1737,7 +1742,7 @@ class NFLDataPipeline:
                     INNER JOIN raw_schedules s
                         ON s.season = ps.season
                         AND s.week = ps.week
-                        AND s.home_team = ps.recent_team
+                        AND s.home_team = ps.team
                     WHERE ps.player_id = prf.player_id
                         AND (ps.season < prf.season
                             OR (ps.season = prf.season AND ps.week < prf.week))
@@ -1758,7 +1763,7 @@ class NFLDataPipeline:
                     INNER JOIN raw_schedules s
                         ON s.season = ps.season
                         AND s.week = ps.week
-                        AND s.away_team = ps.recent_team
+                        AND s.away_team = ps.team
                     WHERE ps.player_id = prf.player_id
                         AND (ps.season < prf.season
                             OR (ps.season = prf.season AND ps.week < prf.week))
@@ -1809,10 +1814,10 @@ class NFLDataPipeline:
                             OR (ps.season = prf.season AND ps.week < prf.week))
                         AND (
                             -- Match opponent (home or away)
-                            (s.home_team = ps.recent_team AND
+                            (s.home_team = ps.team AND
                              s.away_team = ps_current.opponent_team)
                             OR
-                            (s.away_team = ps.recent_team AND
+                            (s.away_team = ps.team AND
                              s.home_team = ps_current.opponent_team)
                         )
                     ORDER BY ps.season DESC, ps.week DESC
@@ -1877,12 +1882,12 @@ class NFLDataPipeline:
                 SET opp_rank_vs_position = COALESCE(dr.defense_rank, 16)
                 FROM defensive_ranks dr
                 INNER JOIN raw_player_stats ps
-                    ON ps.player_id = prf.player_id
-                    AND ps.season = prf.season
-                    AND ps.week = prf.week
-                WHERE dr.season = prf.season
-                    AND dr.week = prf.week
-                    AND dr.team = ps.opponent_team
+                    ON ps.season = dr.season
+                    AND ps.week = dr.week
+                    AND ps.opponent_team = dr.team
+                WHERE prf.player_id = ps.player_id
+                    AND prf.season = ps.season
+                    AND prf.week = ps.week
                     AND prf.position = '{position}'
             """
             )
@@ -2783,7 +2788,7 @@ class NFLDataPipeline:
                         player_name,
                         season,
                         week,
-                        recent_team as team,
+                        team,
                         opponent_team
                     FROM raw_player_stats
                     WHERE week > 1  -- No features for week 1
@@ -3578,7 +3583,7 @@ class NFLDataPipeline:
                         rps.season,
                         rps.week,
                         rps.position,
-                        rps.recent_team as team,
+                        rps.team as team,
 
                         -- Passing stats (QB)
                         rps.passing_yards,
