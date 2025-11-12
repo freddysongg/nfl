@@ -813,8 +813,8 @@ class NFLDataPipeline:
                     rs.week,
                     sd.snapshot_date,
                     rs.active_players,
-                    COALESCE(di.depth_chart, TO_JSON([])) as depth_chart,
-                    COALESCE(rc.key_changes, TO_JSON({})) as key_changes,
+                    COALESCE(di.depth_chart, '[]'::JSON) as depth_chart,
+                    COALESCE(rc.key_changes, '{}'::JSON) as key_changes,
                     CURRENT_TIMESTAMP as created_at
                 FROM roster_snapshots rs
                 LEFT JOIN snapshot_dates sd
