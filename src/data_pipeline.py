@@ -2214,7 +2214,18 @@ class NFLDataPipeline:
         # Bulk insert results
         if results:
             df = pl.DataFrame(results)
-            conn.execute("INSERT INTO team_rolling_features SELECT * FROM df")
+            # Explicitly list columns to exclude created_at (which has DEFAULT)
+            conn.execute("""
+                INSERT INTO team_rolling_features (
+                    team, season, week,
+                    off_epa_per_play_last3, off_success_rate_last3,
+                    off_explosive_play_rate, off_red_zone_efficiency, off_third_down_conv,
+                    def_epa_per_play_last3, def_success_rate_last3,
+                    def_pressure_rate, def_turnover_rate,
+                    pass_rate_neutral, pace_of_play, time_of_possession_avg
+                )
+                SELECT * FROM df
+            """)
             logger.info(
                 f"    ✅ Inserted {len(results):,} team feature records for {season}"
             )
