@@ -1686,7 +1686,7 @@ class NFLDataPipeline:
             INNER JOIN raw_player_stats ps
                 ON ps.season = s.season
                 AND ps.week = s.week
-                AND ps.recent_team = s.away_team
+                AND ps.team = s.away_team
             WHERE prf.player_id = ps.player_id
                 AND prf.season = ps.season
                 AND prf.week = ps.week
@@ -1704,7 +1704,7 @@ class NFLDataPipeline:
             INNER JOIN raw_player_stats ps
                 ON ps.season = s.season
                 AND ps.week = s.week
-                AND ps.recent_team = s.home_team
+                AND ps.team = s.home_team
             WHERE prf.player_id = ps.player_id
                 AND prf.season = ps.season
                 AND prf.week = ps.week
@@ -1742,7 +1742,7 @@ class NFLDataPipeline:
                     INNER JOIN raw_schedules s
                         ON s.season = ps.season
                         AND s.week = ps.week
-                        AND s.home_team = ps.recent_team
+                        AND s.home_team = ps.team
                     WHERE ps.player_id = prf.player_id
                         AND (ps.season < prf.season
                             OR (ps.season = prf.season AND ps.week < prf.week))
@@ -1763,7 +1763,7 @@ class NFLDataPipeline:
                     INNER JOIN raw_schedules s
                         ON s.season = ps.season
                         AND s.week = ps.week
-                        AND s.away_team = ps.recent_team
+                        AND s.away_team = ps.team
                     WHERE ps.player_id = prf.player_id
                         AND (ps.season < prf.season
                             OR (ps.season = prf.season AND ps.week < prf.week))
@@ -1814,10 +1814,10 @@ class NFLDataPipeline:
                             OR (ps.season = prf.season AND ps.week < prf.week))
                         AND (
                             -- Match opponent (home or away)
-                            (s.home_team = ps.recent_team AND
+                            (s.home_team = ps.team AND
                              s.away_team = ps_current.opponent_team)
                             OR
-                            (s.away_team = ps.recent_team AND
+                            (s.away_team = ps.team AND
                              s.home_team = ps_current.opponent_team)
                         )
                     ORDER BY ps.season DESC, ps.week DESC
@@ -2788,7 +2788,7 @@ class NFLDataPipeline:
                         player_name,
                         season,
                         week,
-                        recent_team as team,
+                        team,
                         opponent_team
                     FROM raw_player_stats
                     WHERE week > 1  -- No features for week 1
@@ -3583,7 +3583,7 @@ class NFLDataPipeline:
                         rps.season,
                         rps.week,
                         rps.position,
-                        rps.recent_team as team,
+                        rps.team as team,
 
                         -- Passing stats (QB)
                         rps.passing_yards,
